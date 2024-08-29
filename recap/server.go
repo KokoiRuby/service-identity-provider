@@ -34,8 +34,8 @@ func genServerCert() {
 			CommonName:         "test.server.com",
 		},
 		// SAN
-		DNSNames:    []string{"test.server.com", "localhost"},
-		IPAddresses: []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+		DNSNames:    []string{"test.server.com", "localhost", "service-provider"},
+		IPAddresses: []net.IP{net.IPv4(192, 168, 60, 10), net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 		NotBefore:   time.Now(),
 		NotAfter:    time.Now().AddDate(1, 0, 0),
 		KeyUsage:    x509.KeyUsageDigitalSignature,

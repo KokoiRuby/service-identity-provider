@@ -8,18 +8,28 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 func main() {
-	err := httpNoTLS()
-	err = httpsTLS()
-	if err != nil {
-		return
+
+	for {
+		err := httpNoTLS()
+		time.Sleep(3 * time.Second)
+
+		err = httpsTLS()
+		if err != nil {
+			log.Fatalf("failed to call https tls: %v", err)
+		}
+		time.Sleep(3 * time.Second)
+
+		err = httpsMTLS()
+		if err != nil {
+			log.Fatalf("failed to call https mtls: %v", err)
+		}
+		time.Sleep(3 * time.Second)
 	}
-	err = httpsMTLS()
-	if err != nil {
-		return
-	}
+
 }
 
 func httpNoTLS() error {
@@ -32,20 +42,20 @@ func httpNoTLS() error {
 	//	},
 	//}
 
-	r, err := http.Get("http://localhost:8080/")
+	r, err := http.Get("http://192.168.60.10:8080/")
 	if err != nil {
-		return err
+		log.Fatalf("failed to send req to http://192.168.60.10:8080/: %v", err)
 	}
 
 	body, err := io.ReadAll(r.Body)
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			return
+			log.Fatalf("failed to close body: %v", err)
 		}
 	}(r.Body)
 	if err != nil {
-		return err
+		log.Fatalf("failed to read response body: %v", err)
 	}
 
 	fmt.Printf("Response: %s\n", string(body))
@@ -56,7 +66,7 @@ func httpsTLS() error {
 	// ca to verify server cert
 	caCert, err := os.ReadFile("./certs/ca.pem")
 	if err != nil {
-		return err
+		log.Fatalf("failed to read root ca: %v", err)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -78,14 +88,14 @@ func httpsTLS() error {
 		},
 	}
 
-	resp, err := client.Get("https://localhost:8088/tls")
+	resp, err := client.Get("https://192.168.60.10:8088/tls")
 	if err != nil {
-		return err
+		log.Fatalf("failed to send req to https://192.168.60.10:8088/tls: %v", err)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		log.Fatalf("failed to read response body: %v", err)
 	}
 
 	fmt.Printf("Response: %s\n", string(body))
@@ -96,7 +106,7 @@ func httpsMTLS() error {
 	// ca to verify server cert
 	caCert, err := os.ReadFile("./certs/ca.pem")
 	if err != nil {
-		return err
+		log.Fatalf("failed to read root ca: %v", err)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -127,14 +137,14 @@ func httpsMTLS() error {
 		},
 	}
 
-	resp, err := client.Get("https://localhost:8089/mtls")
+	resp, err := client.Get("https://192.168.60.10:8089/mtls")
 	if err != nil {
-		return err
+		log.Fatalf("failed to send req to https://192.168.60.10:8089/mtls: %v", err)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		log.Fatalf("failed to read response body: %v", err)
 	}
 
 	fmt.Printf("Response: %s\n", string(body))

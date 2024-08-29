@@ -101,17 +101,6 @@ func csrToFile(csr []byte, filename string) error {
 }
 
 func buildServerCertChain(serverCert string, intermCerts ...string) error {
-	file, err := os.Create("server-chain.pem")
-	if err != nil {
-		log.Fatalf("failed to create cert chain file: %s", err)
-	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			log.Fatalf("failed to close cert chain file: %s", err)
-		}
-	}(file)
-
 	var certChain []byte
 
 	serverCertPEM, err := os.ReadFile(serverCert)
@@ -138,17 +127,6 @@ func buildServerCertChain(serverCert string, intermCerts ...string) error {
 }
 
 func buildClientCertChain(clientCert string, intermCerts ...string) error {
-	file, err := os.Create("server-chain.pem")
-	if err != nil {
-		log.Fatalf("failed to create cert chain file: %s", err)
-	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			log.Fatalf("failed to close cert chain file: %s", err)
-		}
-	}(file)
-
 	var certChain []byte
 
 	serverCertPEM, err := os.ReadFile(clientCert)
