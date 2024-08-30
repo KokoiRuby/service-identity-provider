@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-provider
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-provider
+  template:
+    metadata:
+      labels:
+        app: service-provider
+    spec:
+      containers:
+        - name: server
+          image: yukanyan/service-provider:v1.2.1
+          volumeMounts:
+            - mountPath: /opt/app/ca
+              name: ca
+            - mountPath: /opt/app/keypair
+              name: keypair
+      volumes:
+        - name: ca
+          secret:
+            secretName: ca-cert
+        - name: keypair
+          secret:
+            secretName: service-provider-keypair
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: service-provider
+spec:
+  ports:
+    - name: no-tls
+      port: 8080
+      targetPort: 8080
+    - name: tls
+      port: 8088
+      targetPort: 8088
+    - name: mtls
+      port: 8089
+      targetPort: 8089
+  selector:
+    app: service-provider
+  type: ClusterIP

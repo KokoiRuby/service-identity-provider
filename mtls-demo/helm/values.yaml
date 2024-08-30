@@ -1,0 +1,5 @@
+service_provider:
+  replicas: 1
+
+service_consumer:
+  replicas: 1

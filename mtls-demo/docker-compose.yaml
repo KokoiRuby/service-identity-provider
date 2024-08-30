@@ -1,0 +1,32 @@
+services:
+  service-provider:
+    container_name: service-provider
+    image: yukanyan/service-provider:v1.2
+    hostname: service-provider
+    networks:
+      local:
+        ipv4_address: 192.168.60.10
+    ports:
+      - 8080:8080
+      - 8088:8088
+      - 8089:8089
+    volumes:
+      - ./service-provider/certs/ca:/opt/app/ca
+      - ./service-provider/certs/keypair:/opt/app/keypair
+
+  service-consumer:
+    container_name: service-consumer
+    image: yukanyan/service-consumer:v1.2
+    hostname: service-consumer
+    networks:
+      local:
+        ipv4_address: 192.168.60.20
+    volumes:
+      - ./service-consumer/certs/ca:/opt/app/ca
+      - ./service-consumer/certs/keypair:/opt/app/keypair
+    depends_on:
+      - service-provider
+
+networks:
+  local:
+    external: true
