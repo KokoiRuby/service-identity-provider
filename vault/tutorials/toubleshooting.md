@@ -1,0 +1,1 @@
+### [Troubleshooting](https://developer.hashicorp.com/vault/tutorials/get-started/troubleshoot)
