@@ -1,0 +1,27 @@
+# permissions for end users to edit internalcertificates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: internal-cert
+    app.kubernetes.io/managed-by: kustomize
+  name: internalcertificate-editor-role
+rules:
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates/status
+  verbs:
+  - get

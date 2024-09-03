@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- sip_v1alpha1_internalclientca.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

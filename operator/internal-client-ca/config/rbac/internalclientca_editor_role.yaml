@@ -1,0 +1,27 @@
+# permissions for end users to edit internalclientcas.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: internal-client-ca
+    app.kubernetes.io/managed-by: kustomize
+  name: internalclientca-editor-role
+rules:
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas/status
+  verbs:
+  - get

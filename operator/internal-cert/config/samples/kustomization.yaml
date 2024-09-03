@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- sip_v1alpha1_internalcertificate.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

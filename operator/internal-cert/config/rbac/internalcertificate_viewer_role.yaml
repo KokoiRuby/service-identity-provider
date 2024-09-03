@@ -1,0 +1,23 @@
+# permissions for end users to view internalcertificates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: internal-cert
+    app.kubernetes.io/managed-by: kustomize
+  name: internalcertificate-viewer-role
+rules:
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates/status
+  verbs:
+  - get

@@ -1,0 +1,16 @@
+apiVersion: sip.sec.com/v1alpha1
+kind: InternalClientCA
+metadata:
+  labels:
+    app.kubernetes.io/name: internal-cert
+    app.kubernetes.io/managed-by: kustomize
+  name: internalclientca-sample
+spec:
+  # TODO(user): Add fields here
+  certificate:
+    subject:
+      cn: service-consumer
+  secret:
+    name: service-consumer-ca
+    certName: ca.pem
+    

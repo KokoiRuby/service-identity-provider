@@ -1,0 +1,23 @@
+# permissions for end users to view internalclientcas.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: internal-client-ca
+    app.kubernetes.io/managed-by: kustomize
+  name: internalclientca-viewer-role
+rules:
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas/status
+  verbs:
+  - get
