@@ -5,7 +5,7 @@ dev server
 ```bash
 $ vault server -dev
 $ export VAULT_ADDR='http://127.0.0.1:8200'
-$ export VAULT_TOKEN="hvs.6j4cuewowBGit65rheNoceI7"
+$ export VAULT_TOKEN="BLOCKED BY GITHUB"
 $ vault status
 ```
 

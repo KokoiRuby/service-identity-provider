@@ -60,9 +60,9 @@ Vault 通过基于插件框架的**内置插件**来提供所有功能。
 
 ```bash
 # export VAULT_ADDR='http://127.0.0.1:8200'
-# export VAULT_TOKEN="hvs.2Q3xkL2Ub8UDzfRXnOIul8ub"
+# export VAULT_TOKEN="BLOCKED BY GITHUB"
 # Unseal Key: jfWjrX2AsFDOOwCZvX9/YkwLythaAl3Bu+J50+gYAcQ=
-# Root Token: hvs.2Q3xkL2Ub8UDzfRXnOIul8ub
+# Root Token: BLOCKED BY GITHUB
 $ vault server -dev
 ```
 
@@ -75,7 +75,7 @@ $ vault server -dev
 # Unseal Key 4: xc1YleYMi0eMXr8kiGAa8Q9NWt/+O1CrGO9yCXjq44SL
 # Unseal Key 5: NrBBEUfDPwV/ITz086FU7g7HgwEBpuY9Su5ayLHiJUqa
 
-# Initial Root Token: hvs.Fzn5qNB5io7RLzzMzc3UcUT6
+# Initial Root Token: BLOCKED BY GITHUB
 $ vault operator init
 
 # At least 3 of these keys to unseal it
@@ -141,7 +141,7 @@ $ export VAULT_ADDR=https://127.0.0.1:8200
 $ export VAULT_SKIP_VERIFY=true
 
 # Unseal Key 1: A/s04AjMQTWZeOgjaVCLRIwbBf2c6Q8HrZxNFLm0gO8=
-# Initial Root Token: hvs.zlC0lWZ3ReP0UxZr5U63yXCB
+# Initial Root Token: BLOCKED BY GITHUB
 $ vault operator init -key-shares=1 -key-threshold=1
 
 # against unseal key
@@ -175,7 +175,7 @@ Vault 支持两种验证 `userpass` for human & `kubernetes` for workload。
 ```bash
 Key                  Value
 ---                  -----
-token                hvs.5k2fSn7gmsLyotTp8roccTkK
+token                BLOCKED BY GITHUB
 # uid that can be used to lookup, renew, or revoke a token
 token_accessor       uyDvDGJiLVLTAOuez3SbhPYp
 # ttl, default is 32 days
