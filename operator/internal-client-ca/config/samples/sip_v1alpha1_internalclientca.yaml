@@ -4,13 +4,13 @@ metadata:
   labels:
     app.kubernetes.io/name: internal-cert
     app.kubernetes.io/managed-by: kustomize
-  name: internalclientca-sample
+  name: internalclientca-service-provider-sample
 spec:
   # TODO(user): Add fields here
   certificate:
     subject:
-      cn: service-consumer
+      cn: service-provider
   secret:
-    name: service-consumer-ca
+    name: service-provider-ca
     certName: ca.pem
     

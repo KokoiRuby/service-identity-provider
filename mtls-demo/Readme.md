@@ -35,7 +35,7 @@ Note: if u don't have a K8s cluster, try [kind](https://kind.sigs.k8s.io/).
 
 ```bash
 $ cd recap
-$ helm install my-tls-demo mtls-demo-1.0.0.tgz
+$ helm install my-mtls-demo mtls-demo-1.0.0.tgz
 ```
 
 #### Rev
