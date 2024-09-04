@@ -9,13 +9,13 @@ spec:
   # TODO(user): Add fields here
   certificate:
     issuer: 
-      reference: service-consumer-ca
+      reference: service-provider-ca
     subject:
-      cn: service-consumer
+      cn: service-provider
     extendedKeyUsage:
       ClientAuth: false
       ServerAuth: true
   secret:
-    name: service-consumer-cert
+    name: service-provider-client-cert
     keyName: tls.key
     certName: tls.crt
