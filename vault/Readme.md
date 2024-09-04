@@ -53,7 +53,7 @@ $ vault read -format=json sys/mounts/sip-interm-ca | jq .data.config.max_lease_t
 $ vault write sip-root-ca/root/generate/internal \
     common_name="sip Internal Root CA" \
     key_type=ec \
-	key_bits=256 \
+    key_bits=256 \
     ttl=876000h
     
 $ vault list -format=json sip-root-ca/keys 
@@ -74,7 +74,6 @@ $ vault write sip-interm-ca/config/urls \
 5. [Configure](https://developer.hashicorp.com/vault/api-docs/secret/pki) a role that maps a name in Vault to a procedure for generating a certificate.
 
 ```bash
-# https://github.com/hashicorp/vault/issues/25848
 $ vault write sip-root-ca/roles/root-ca \
 	key_type=ec \
 	key_bits=256 \
@@ -216,6 +215,8 @@ $ vault write sip-client-ca/service-provider-ca/roles/client-ca \
 	key_type=ec \
 	key_bits=256 \
     key_usage="DigitalSignature" \
+    server_flag=false \
+    client_flag=false \
     ext_key_usage="ClientAuth" \
     allowed_domains="service-provider,cluster.local" \
     allow_subdomains=true \
@@ -224,9 +225,6 @@ $ vault write sip-client-ca/service-provider-ca/roles/client-ca \
     
 $ vault read sip-client-ca/service-provider-ca/roles/client-ca
 $ vault read sip-client-ca/service-provider-ca/roles/client-ca | grep _flag
-
-# https://github.com/hashicorp/vault/issues/25848
-$ vault patch sip-client-ca/service-provider-ca/roles/client-ca server_flag=false client_flag=false
 ```
 
 6. Issue certificates
