@@ -18,6 +18,9 @@ var (
 	ctx     context.Context
 	clientV *vault.Client
 	clientK *kubernetes.Clientset
+
+	rootCAPath   = "sip-root-ca"
+	intermCAPath = "sip-interm-ca"
 )
 
 func init() {
@@ -52,23 +55,20 @@ func main() {
 	if status.Data["initialized"].(bool) {
 		log.Println("Vault is already initialized.")
 		if status.Data["sealed"].(bool) {
-			log.Println("Vault is sealed. Unsealing...")
 			unSeal()
-			log.Println("Vault is now unsealed.")
 			os.Exit(0)
 		} else {
 			log.Println("Vault is already unsealed.")
 			os.Exit(0)
 		}
 	} else {
-		log.Println("Vault is not initialized yet. Initializing...")
 		initVault()
-		log.Println("All set, good to go.")
 		os.Exit(0)
 	}
 }
 
 func initVault() {
+	log.Println("Vault is not initialized yet. Initializing...")
 	// vault operator init -key-shares=1 -key-threshold=1
 	initResp, err := clientV.System.Initialize(
 		ctx,
@@ -85,10 +85,23 @@ func initVault() {
 	unsealKey := initResp.Data["keys_base64"].([]interface{})[0]
 	rootToken := initResp.Data["root_token"]
 
-	// in-cluster
+	// vault operator unseal
+	go func() {
+		log.Println("Vault is sealed. Unsealing...")
+		_, err = clientV.System.Unseal(ctx,
+			schema.UnsealRequest{
+				Key: unsealKey.(string),
+			})
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Println("Vault is now unsealed.")
+	}()
+
 	nsByte, _ := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	ns := string(nsByte)
 
+	// persist to secrets
 	log.Println("Create secret for Vault unseal key.")
 	wantedSecretForUnsealKey := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -100,7 +113,7 @@ func initVault() {
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	createdSecretForUnsealKey, err := clientK.CoreV1().Secrets(ns).Create(ctx, wantedSecretForUnsealKey, metav1.CreateOptions{})
+	_, err = clientK.CoreV1().Secrets(ns).Create(ctx, wantedSecretForUnsealKey, metav1.CreateOptions{})
 	if err != nil {
 		switch {
 		case errors.IsNotFound(err):
@@ -120,8 +133,6 @@ func initVault() {
 		}
 	}
 
-	_ = createdSecretForUnsealKey
-
 	log.Println("Create secret for Vault root token")
 	wantedSecretForRootToken := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -134,7 +145,7 @@ func initVault() {
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	createdSecretForRootToken, err := clientK.CoreV1().Secrets(ns).Create(ctx, wantedSecretForRootToken, metav1.CreateOptions{})
+	_, err = clientK.CoreV1().Secrets(ns).Create(ctx, wantedSecretForRootToken, metav1.CreateOptions{})
 	if err != nil {
 		switch {
 		case errors.IsNotFound(err):
@@ -142,7 +153,7 @@ func initVault() {
 		case errors.IsAlreadyExists(err):
 			log.Println("Secret vault-root-token already exists. Updating...")
 			existedSecretForRootToken, _ := clientK.CoreV1().Secrets(ns).Get(ctx, "vault-root-token", metav1.GetOptions{})
-			existedSecretForRootToken.Data["key"] = []byte(unsealKey.(string))
+			existedSecretForRootToken.Data["token"] = []byte(rootToken.(string))
 			_, err = clientK.CoreV1().Secrets(ns).Update(context.TODO(), existedSecretForRootToken, metav1.UpdateOptions{})
 			if err != nil {
 				log.Fatal(err)
@@ -154,23 +165,11 @@ func initVault() {
 		}
 	}
 
-	_ = createdSecretForRootToken
-
-	// vault operator unseal
-	log.Println("Vault is sealed. Unsealing...")
-	_, err = clientV.System.Unseal(ctx,
-		schema.UnsealRequest{
-			Key: unsealKey.(string),
-		})
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Vault is now unsealed.")
-
 }
 
 func unSeal() {
-	// in-cluster
+	log.Println("Vault is sealed. Unsealing...")
+
 	nsByte, _ := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	ns := string(nsByte)
 
@@ -189,4 +188,5 @@ func unSeal() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("Vault is now unsealed.")
 }

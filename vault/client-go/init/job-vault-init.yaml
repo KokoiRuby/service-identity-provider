@@ -9,6 +9,6 @@ spec:
       serviceAccountName: vault-initiator
       containers:
         - name: vault-init
-          image: yukanyan/vault-init:v1.2.0
+          image: yukanyan/vault-init:v1.3.4
       restartPolicy: Never
   backoffLimit: 4
