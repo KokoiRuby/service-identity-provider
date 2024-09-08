@@ -28,7 +28,7 @@ package main
 //	clientCAPath = "sip-client-ca/" + cn
 //	rootCAPath   = "sip-root-ca"
 //	intermCAPath = "sip-interm-ca"
-//	rootToken    = "hvs.nEibi98ZxL4Low38AEvNDXNg"
+//	rootToken    = "BLOCKED BY GITHUB"
 //	//
 //	client *vault.Client
 //	//
