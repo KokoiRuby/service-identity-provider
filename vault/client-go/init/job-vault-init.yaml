@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init
+  namespace: sip
+spec:
+  template:
+    spec:
+      serviceAccountName: vault-initiator
+      containers:
+        - name: vault-init
+          image: yukanyan/vault-init:v1.2.0
+      restartPolicy: Never
+  backoffLimit: 4

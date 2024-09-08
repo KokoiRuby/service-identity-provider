@@ -1,10 +1,63 @@
 ## [vault-client-go](https://github.com/hashicorp/vault-client-go)
 
-
-
 ### Internal Certificate
 
 > TODO: initContainer
+
+Patch role to grant permissions on secrets, which allows initContainer to create secret for unseal key & root token.
+
+:warning: This is just for PoC, proceed with caution in Production.
+
+```bash
+$ kubectl patch role vault-discovery-role -n sip \
+	--type='json' \
+	-p='[
+  {
+    "op": "add",
+    "path": "/rules/-",
+    "value": {
+      "apiGroups": [""],
+      "resourceNames": ["vault-unseal-key"],
+      "resources": ["secrets"],
+      "verbs": ["create", "get", "update"]
+    }
+  },
+  {
+    "op": "add",
+    "path": "/rules/-",
+    "value": {
+      "apiGroups": [""],
+      "resourceNames": ["vault-root-token"],
+      "resources": ["secrets"],
+      "verbs": ["create", "get", "update"]
+    }
+  },
+  {
+    "op": "add",
+    "path": "/rules/-",
+    "value": {
+      "apiGroups": [""],
+      "resourceNames": ["sip-root-ca-cert"],
+      "resources": ["secrets"],
+      "verbs": ["get"]
+    }
+  }
+]'
+```
+
+```yaml
+# kubectl get rolebinding vault-discovery-rolebinding -o yaml
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-discovery-role
+subjects:
+- kind: ServiceAccount
+  name: vault
+  namespace: sip
+```
+
+
 
 ### Internal Client CA
 

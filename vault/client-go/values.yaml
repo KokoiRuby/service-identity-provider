@@ -478,11 +478,11 @@ server:
   # extraInitContainers is a list of init containers. Specified as a YAML list.
   # This is useful if you need to run a script to provision TLS certificates or
   # write out configuration files in a dynamic way.
-  extraInitContainers: null
-    # # This example installs a plugin pulled from github into the /usr/local/libexec/vault/oauthapp folder,
-    # # which is defined in the volumes value.
-    # - name: oauthapp
-    #   image: "alpine"
+  extraInitContainers:
+    # This example installs a plugin pulled from github into the /usr/local/libexec/vault/oauthapp folder,
+    # which is defined in the volumes value.
+#     - name: vault-init
+#       image: "yukanyan/vault-unseal:v1.0.0"
     #   command: [sh, -c]
     #   args:
     #     - cd /tmp &&
@@ -766,7 +766,7 @@ server:
   dataStorage:
     enabled: true
     # Size of the PVC created
-    size: 3Gi
+    size: 1Gi
     # Location where the PVC will be mounted.
     mountPath: "/vault/data"
     # Name of the storage class to use.  If null it will use the
@@ -795,7 +795,7 @@ server:
   auditStorage:
     enabled: false
     # Size of the PVC created
-    size: 10Gi
+    size: 1Gi
     # Location where the PVC will be mounted.
     mountPath: "/vault/audit"
     # Name of the storage class to use.  If null it will use the
@@ -873,7 +873,7 @@ server:
   # Helm project by default.  It is possible to manually configure Vault to use a
   # different HA backend.
   ha:
-    enabled: true
+    enabled: false
     replicas: 3
 
     # Set the api_addr configuration for Vault HA

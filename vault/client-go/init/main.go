@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -28,15 +27,14 @@ func init() {
 	log.Println("Setup client to vault.")
 	var err error
 	clientV, err = vault.New(
-		vault.WithAddress("http://127.0.0.1:8200"),
+		vault.WithAddress("http://vault:8200"),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// setup client to k8s
-	//kubeConf, err := rest.InClusterConfig()
-	kubeConf, err := getConfig()
+	kubeConf, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,16 +63,9 @@ func main() {
 	} else {
 		log.Println("Vault is not initialized yet. Initializing...")
 		initVault()
-		log.Println("Vault is now unsealed.")
+		log.Println("All set, good to go.")
 		os.Exit(0)
 	}
-}
-
-func getConfig() (*rest.Config, error) {
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		nil,
-	).ClientConfig()
 }
 
 func initVault() {
@@ -91,8 +82,6 @@ func initVault() {
 	}
 	log.Println("Vault is now initialized.")
 
-	// persist unseal key & root token into secret
-	// read from resp
 	unsealKey := initResp.Data["keys_base64"].([]interface{})[0]
 	rootToken := initResp.Data["root_token"]
 
@@ -100,10 +89,7 @@ func initVault() {
 	nsByte, _ := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	ns := string(nsByte)
 
-	// test
-	ns = "sip"
-
-	log.Println("Create secret for Vault unseal key")
+	log.Println("Create secret for Vault unseal key.")
 	wantedSecretForUnsealKey := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "vault-unseal-key",
@@ -121,17 +107,20 @@ func initVault() {
 			log.Fatalf("Namespace %v not found\n", ns)
 		case errors.IsAlreadyExists(err):
 			log.Println("Secret vault-unseal-key already exists. Updating...")
-			createdSecretForUnsealKey.Data["key"] = []byte(unsealKey.(string))
-			_, err = clientK.CoreV1().Secrets(ns).Update(context.TODO(), createdSecretForUnsealKey, metav1.UpdateOptions{})
+			existedSecretForUnsealKey, _ := clientK.CoreV1().Secrets(ns).Get(ctx, "vault-unseal-key", metav1.GetOptions{})
+			existedSecretForUnsealKey.Data["key"] = []byte(unsealKey.(string))
+			_, err = clientK.CoreV1().Secrets(ns).Update(context.TODO(), existedSecretForUnsealKey, metav1.UpdateOptions{})
 			if err != nil {
 				log.Fatal(err)
 			}
 		case errors.IsInvalid(err):
-			log.Fatal("Secret spec is invalid\n")
+			log.Fatal("Secret spec is invalid.\n")
 		default:
 			log.Fatal(err)
 		}
 	}
+
+	_ = createdSecretForUnsealKey
 
 	log.Println("Create secret for Vault root token")
 	wantedSecretForRootToken := &corev1.Secret{
@@ -151,14 +140,15 @@ func initVault() {
 		case errors.IsNotFound(err):
 			log.Fatalf("Namespace %v not found\n", ns)
 		case errors.IsAlreadyExists(err):
-			log.Println("Secret vault-root-token already exists.")
-			createdSecretForRootToken.Data["key"] = []byte(rootToken.(string))
-			_, err = clientK.CoreV1().Secrets(ns).Update(context.TODO(), createdSecretForRootToken, metav1.UpdateOptions{})
+			log.Println("Secret vault-root-token already exists. Updating...")
+			existedSecretForRootToken, _ := clientK.CoreV1().Secrets(ns).Get(ctx, "vault-root-token", metav1.GetOptions{})
+			existedSecretForRootToken.Data["key"] = []byte(unsealKey.(string))
+			_, err = clientK.CoreV1().Secrets(ns).Update(context.TODO(), existedSecretForRootToken, metav1.UpdateOptions{})
 			if err != nil {
 				log.Fatal(err)
 			}
 		case errors.IsInvalid(err):
-			log.Fatal("Secret spec is invalid\n")
+			log.Fatal("Secret spec is invalid.\n")
 		default:
 			log.Fatal(err)
 		}
@@ -175,15 +165,14 @@ func initVault() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("Vault is now unsealed.")
+
 }
 
 func unSeal() {
 	// in-cluster
 	nsByte, _ := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	ns := string(nsByte)
-
-	// test
-	ns = "sip"
 
 	// get unseal key secret
 	secretOfUnsealKey, err := clientK.CoreV1().Secrets(ns).Get(ctx, "vault-unseal-key", metav1.GetOptions{})
