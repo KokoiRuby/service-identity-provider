@@ -20,13 +20,14 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/hashicorp/vault-client-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"log"
-	"net/http"
-	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -200,6 +201,12 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "InternalCertificate")
 		os.Exit(1)
+	}
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = (&sipv1alpha1.InternalCertificate{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "InternalCertificate")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 

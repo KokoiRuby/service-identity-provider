@@ -59,13 +59,13 @@ spec:
                       ExtendedKeyUsage represents an extended set of actions that are valid for a given key.
                       https://pkg.go.dev/crypto/x509#ExtKeyUsage
                     properties:
-                      ClientAuth:
+                      clientAuth:
                         type: boolean
-                      ServerAuth:
+                      serverAuth:
                         type: boolean
                     required:
-                    - ClientAuth
-                    - ServerAuth
+                    - clientAuth
+                    - serverAuth
                     type: object
                   issuer:
                     description: Issuer indicates the issuer of certificate

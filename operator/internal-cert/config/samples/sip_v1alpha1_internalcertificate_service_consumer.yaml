@@ -13,8 +13,8 @@ spec:
     subject:
       cn: service-provider
     extendedKeyUsage:
-      ClientAuth: true
-      ServerAuth: false
+      clientAuth: true
+      serverAuth: false
   secret:
     name: service-provider-client-cert
     keyName: tls.key

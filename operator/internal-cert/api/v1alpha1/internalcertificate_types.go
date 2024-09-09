@@ -49,8 +49,8 @@ type Subject struct {
 // https://pkg.go.dev/crypto/x509#ExtKeyUsage
 // TODO: ++Validation webhook
 type ExtendedKeyUsage struct {
-	ClientAuth bool `json:"ClientAuth"`
-	ServerAuth bool `json:"ServerAuth"`
+	ClientAuth bool `json:"clientAuth"`
+	ServerAuth bool `json:"serverAuth"`
 }
 
 // Secret defines properties related to the storage of the certification
