@@ -47,6 +47,7 @@ type Subject struct {
 
 // ExtendedKeyUsage represents an extended set of actions that are valid for a given key.
 // https://pkg.go.dev/crypto/x509#ExtKeyUsage
+// TODO: ++Validation webhook
 type ExtendedKeyUsage struct {
 	ClientAuth bool `json:"ClientAuth"`
 	ServerAuth bool `json:"ServerAuth"`

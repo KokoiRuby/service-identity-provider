@@ -17,13 +17,19 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
+	"github.com/hashicorp/vault-client-go"
+	"log"
+	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -37,12 +43,23 @@ import (
 
 	sipv1alpha1 "github.com/KokoiRuby/service-identity-provider/operator/internal-client-ca/api/v1alpha1"
 	"github.com/KokoiRuby/service-identity-provider/operator/internal-client-ca/internal/controller"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	// ++
+	clientV *vault.Client
+	clientK *kubernetes.Clientset
+	clientH *http.Client
+
+	nsByte, _ = os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	ns        = string(nsByte)
+
+	rootToken string
 )
 
 func init() {
@@ -50,6 +67,38 @@ func init() {
 
 	utilruntime.Must(sipv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
+
+	// ++
+	// setup client to k8s
+	kubeConf, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+	clientK = kubernetes.NewForConfigOrDie(kubeConf)
+
+	// vault root token
+	existedSecretForRootToken, err := clientK.CoreV1().Secrets(ns).Get(context.Background(), "vault-root-token", metav1.GetOptions{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	rootToken = string(existedSecretForRootToken.Data["token"])
+
+	// setup client to vault
+	log.Println("Setup client to vault.")
+	clientV, err = vault.New(
+		vault.WithAddress("http://127.0.0.1:8200"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// authn against root token
+	if err := clientV.SetToken(rootToken); err != nil {
+		log.Fatal(err)
+	}
+
+	// setup http client to vault
+
 }
 
 func main() {
@@ -126,7 +175,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "dbeaa920.sec.com",
+		LeaderElectionID:       "644997c3.sec.com",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -147,6 +196,8 @@ func main() {
 	if err = (&controller.InternalClientCAReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		// ++
+		ClientV: clientV,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "InternalClientCA")
 		os.Exit(1)

@@ -18,7 +18,10 @@ package controller
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"github.com/hashicorp/vault-client-go"
+	"github.com/hashicorp/vault-client-go/schema"
+	"net/http"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,6 +38,9 @@ import (
 type InternalCertificateReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// ++
+	ClientV *vault.Client
+	ClientH *http.Client
 }
 
 // +kubebuilder:rbac:groups=sip.sec.com,resources=internalcertificates,verbs=get;list;watch;create;update;patch;delete
@@ -67,60 +73,90 @@ func (r *InternalCertificateReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// 2. Parse CR
-	certificate := intCert.Spec.Certificate
-	secret := intCert.Spec.Secret
+	// 2. Parse CR and determine which pki to call
+	// TODO: ++Validation Webhook, so we could skip if cond
+	if intCert.Spec.Certificate.ExtendedKeyUsage.ClientAuth && !intCert.Spec.Certificate.ExtendedKeyUsage.ServerAuth {
+		// client authn pki
+		cn := intCert.Spec.Certificate.Subject.CN
+		issuer := intCert.Spec.Certificate.Issuer.Reference
 
-	logger.Info("Parsing InternalCertificate",
-		"Issuer", certificate.Issuer.Reference,
-		"Subject CN", certificate.Subject.CN,
-		"Extended Key Usage", certificate.ExtendedKeyUsage,
-		"Secret Name", secret.Name,
-		"Secret Key Name", secret.KeyName,
-		"Secret Certiticate Name", secret.CertName)
-
-	// 3. vault api & get keypair info
-
-	// 4. persist into secret
-	s, err := r.secretFromIntCert(&intCert)
-	if err != nil {
-		logger.Error(err, "failed to define Secret for InternalCertificate")
-		return ctrl.Result{}, err
-	}
-
-	err = r.Client.Create(ctx, s)
-	if err != nil {
-		if !apierrors.IsAlreadyExists(err) {
-			return ctrl.Result{}, fmt.Errorf("failed to create Secret: %v", err)
+		issueResp, err := r.ClientV.Secrets.PkiIssueWithRole(ctx, "client-ca",
+			schema.PkiIssueWithRoleRequest{
+				CommonName: cn,
+				AltNames:   cn + ", " + cn + ".sip, " + cn + ".sip.svc, " + cn + ".sip.svc.cluster.local",
+			},
+			vault.WithMountPath("sip-client-ca"+"/"+issuer))
+		if err != nil {
+			logger.Error(err, "unable to issue client-ca")
+			return ctrl.Result{}, err
 		}
+
+		secret, err := r.buildSecretFrom(&intCert, issueResp)
+		if err != nil {
+			logger.Error(err, "unable to build secret from InternalCertificate")
+			return ctrl.Result{}, err
+		}
+
+		err = r.Client.Create(ctx, secret)
+		if err != nil {
+			logger.Error(err, "unable to create secret")
+			return ctrl.Result{}, err
+		}
+
+	} else if !intCert.Spec.Certificate.ExtendedKeyUsage.ClientAuth && intCert.Spec.Certificate.ExtendedKeyUsage.ServerAuth {
+		// server authn pki
+		cn := intCert.Spec.Certificate.Subject.CN
+		issueResp, err := r.ClientV.Secrets.PkiIssueWithRole(ctx, "interm-ca",
+			schema.PkiIssueWithRoleRequest{
+				CommonName: cn,
+				AltNames:   cn + ", " + cn + ".sip, " + cn + ".sip.svc, " + cn + ".sip.svc.cluster.local",
+			},
+			vault.WithMountPath("sip-interm-ca"))
+		if err != nil {
+			logger.Error(err, "unable to issue interm-ca")
+			return ctrl.Result{}, err
+		}
+
+		secret, err := r.buildSecretFrom(&intCert, issueResp)
+		if err != nil {
+			logger.Error(err, "unable to build secret from InternalCertificate")
+			return ctrl.Result{}, err
+		}
+
+		err = r.Client.Create(ctx, secret)
+		if err != nil {
+			logger.Error(err, "unable to create secret")
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+
+	} else {
+		logger.Error(errors.New("certificate usages must be either ClientAuth or ServerAuth"), "")
+		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *InternalCertificateReconciler) secretFromIntCert(intCert *sipv1alpha1.InternalCertificate) (*corev1.Secret, error) {
-	key := "this is a key"
-	cert := "this is a cert"
-
+func (r *InternalCertificateReconciler) buildSecretFrom(intCert *sipv1alpha1.InternalCertificate, issueResp *vault.Response[schema.PkiIssueWithRoleResponse]) (*corev1.Secret, error) {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intCert.Spec.Secret.Name,
 			Namespace: intCert.Namespace,
 		},
-		Data: map[string][]byte{
-			"tls.key": []byte(key),
-			"tls.crt": []byte(cert),
+		StringData: map[string]string{
+			intCert.Spec.Secret.KeyName:  issueResp.Data.PrivateKey,
+			intCert.Spec.Secret.CertName: issueResp.Data.Certificate,
 		},
 		Type: corev1.SecretTypeTLS,
 	}
 
-	// set owner ref
 	if err := ctrl.SetControllerReference(intCert, secret, r.Scheme); err != nil {
 		return nil, err
 	}
 
 	return secret, nil
-
 }
 
 // SetupWithManager sets up the controller with the Manager.
