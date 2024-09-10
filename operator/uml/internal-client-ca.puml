@@ -1,0 +1,54 @@
+@startuml InternalClientCA
+participant Operator #LightBlue
+collections K8s #LightBlue
+database Vault #LightBlue
+
+header Service Identity Provider
+
+title InternalClientCA Operator
+-> Operator : {Create/Update/Delete}InternalClientCA Events
+    alt#Gold #LightGreen
+        Operator -> K8s : get InternalClientCA
+        alt#Gold #LightGreen
+            Operator -> Vault : list PKI secrets engine
+            alt#Gold #LightGreen PKI secrets engine not enabled yet
+                Operator -> Vault : enable PKI secrets engine
+                alt#Gold #LightGreen
+                    Operator -> Operator : build secret from InternalClientCA
+                    alt#Gold #LightGreen
+                        Operator -> Vault : create secret
+                        Operator <- Vault : created
+                    else #Pink End Reconciliation
+                        Operator <- Vault : failed to create secret
+                    end
+                else #Pink End Reconciliation
+                    Operator -> Operator : failed to build secret from InternalClientCA
+                end
+            else #Pink End Reconciliation
+                Operator <- Vault : failed to enable PKI secrets engine
+            end
+            alt#Gold #LightGreen PKI secrets engine is already enabled
+                Operator -> Vault : get client CA cert
+                alt#Gold #LightGreen
+                    Operator -> Operator : build secret from client CA cert
+                    alt#Gold #LightGreen
+                        Operator -> Vault : create secret
+                        Operator <- Vault : created
+                    else #Pink End Reconciliation
+                        Operator <- Vault : failed to create secret
+                    end
+                else #Pink End Reconciliation
+                    Operator -> Operator : failed to build secret from client CA cert
+                end
+            else  #Pink End Reconciliation
+                Operator <- Vault : failed to get client CA cert
+            end
+        else #Pink End Reconciliation
+            Operator <- Vault : failed to list PKI secrets engine
+        end
+    else #Pink End Reconciliation
+        K8s -> Operator : InternalCertificate not found
+    end
+
+
+@enduml

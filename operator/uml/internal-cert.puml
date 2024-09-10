@@ -1,0 +1,50 @@
+@startuml InternalCertificate
+participant Operator #LightBlue
+collections K8s #LightBlue
+database Vault #LightBlue
+
+header Service Identity Provider
+
+title InternalCertificate Operator
+
+-> Operator : {Create/Update/Delete}InternalCertificate Events
+    alt#Gold #LightGreen
+        Operator -> K8s : get InternalCertificate
+        alt#Gold #LightGreen ExtendedKeyUsage.ClientAuth
+            Operator -> Vault : issue PKI Client CA
+            Vault -> Operator : issue response
+            alt#Gold #LightGreen
+            Operator -> Operator : build secret from InternalCertificate
+                alt#Gold #LightGreen End Reconciliation
+                Operator -> K8s : create secret
+                Operator <- K8s : created
+                else #Pink End Reconciliation
+                Operator <- K8s : unable to create secret
+                end
+            else #Pink End Reconciliation
+            Operator -> Operator : unable to build secret from InternalCertificate
+            end
+        else #Pink End Reconciliation
+            Vault -> Operator : unable to issue PKI Intermediate CA
+        end
+        alt#Gold #LightGreen ExtendedKeyUsage.ServerAuth
+            Operator -> Vault : issue PKI Intermediate CA
+            Vault -> Operator : issue response
+            alt#Gold #LightGreen
+            Operator -> Operator : build secret from InternalCertificate
+                alt#Gold #LightGreen End Reconciliation
+                Operator -> K8s : create secret
+                Operator <- K8s : created
+                else #Pink End Reconciliation
+                Operator <- K8s : unable to create secret
+                end
+            else #Pink End Reconciliation
+            Operator -> Operator : unable to build secret from InternalCertificate
+            end
+        else #Pink End Reconciliation
+            Vault -> Operator : unable to issue PKI Client CA
+        end
+    else #Pink End Reconciliation
+        K8s -> Operator : InternalCertificate not found
+    end
+@enduml

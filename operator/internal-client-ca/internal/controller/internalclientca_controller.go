@@ -129,7 +129,7 @@ func (r *InternalClientCAReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			logger.Error(err, "failed to create secret from InternalClientCA")
 			return ctrl.Result{}, err
 		}
-		err = r.Client.Create(ctx, secret)
+		err = r.Client.Update(ctx, secret)
 		if err != nil {
 			if !apierrors.IsAlreadyExists(err) {
 				return ctrl.Result{}, err
