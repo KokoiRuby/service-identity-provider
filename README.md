@@ -2,7 +2,7 @@
 
 ### Overiview
 
-**Service-Identity-Provider (SIP)** provides X.509 keypair to secure in-cluster mTLS. By leveraging [PKI](https://developer.hashicorp.com/vault/docs/secrets/pki) secrets engine of HashiCorp [Vault](https://www.vaultproject.io/), the keypair(s) can be automatically provisioned without going through usual manual process of generation.
+**Service-Identity-Provider (SIP)** provides X.509 keypair to secure Kubernetes in-cluster mTLS. By leveraging [PKI](https://developer.hashicorp.com/vault/docs/secrets/pki) secrets engine of HashiCorp [Vault](https://www.vaultproject.io/), the keypair(s) can be automatically provisioned without going through usual manual process of generation.
 
 An application can request SIP for keypair needed to estabilish mTLS between **Service Provider** & **Service Consumer** (client of **Service Provider**) by declaring Kubernetes [Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRs) according to Kubernetes [Custom Resource Definition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/) (CRD).
 

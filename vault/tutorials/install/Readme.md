@@ -319,7 +319,11 @@ DNS.2 = *.${VAULT_SERVICE_NAME}.${VAULT_K8S_NAMESPACE}.svc.${K8S_CLUSTER_NAME}
 DNS.3 = *.${VAULT_K8S_NAMESPACE}
 IP.1 = 127.0.0.1
 EOF
-$ openssl req -new -key ${WORKDIR}/vault.key -out ${WORKDIR}/vault.csr -config ${WORKDIR}/vault-csr.conf
+
+$ openssl req -new \
+    -key ${WORKDIR}/vault.key \
+    -out ${WORKDIR}/vault.csr \
+    -config ${WORKDIR}/vault-csr.conf
 
 # issue
 $ cat > ${WORKDIR}/csr.yaml << EOF | kubectl apply -f -
