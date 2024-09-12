@@ -9,6 +9,11 @@ spec:
       serviceAccountName: vault-initiator
       containers:
         - name: vault-init
-          image: yukanyan/vault-init:v1.3.4
+          image: yukanyan/vault-init:v1.3.18
+          env:
+            - name: VAULT_CLUSTER
+              value: "vault-0,vault-1,vault-2"
+            - name: KUBERNETES_CLUSTER_DOMAIN
+              value: "cluster.local"
       restartPolicy: Never
   backoffLimit: 4

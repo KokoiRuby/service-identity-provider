@@ -1,12 +1,6 @@
 ## Bootstrap
 
-```bash
-$ kubectl get csr vault.svc -o jsonpath='{.status.certificate}' | \
-	openssl base64 -d -A -out ./vault.crt
-$ openssl x509 -in vault.crt -text -noout	
-```
-
-
+Create a secret contains keypair where certificate is signed by Kubernetes cluster Root CA.
 
 ## Init
 

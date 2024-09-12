@@ -280,9 +280,6 @@ injector:
   # injector deployment.
   extraEnvironmentVars: {}
     # KUBERNETES_SERVICE_HOST: kubernetes.default.svc
-    VAULT_CACERT: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-    VAULT_TLSCERT: /vault/userconfig/vault-ha-tls/vault.crt
-    VAULT_TLSKEY: /vault/userconfig/vault-ha-tls/vault.key
 
   # Affinity Settings for injector pods
   # This can either be a multi-line string or YAML matching the PodSpec's affinity field.
@@ -571,10 +568,13 @@ server:
 
   # extraEnvironmentVars is a list of extra environment variables to set with the stateful set. These could be
   # used to include variables required for auto-unseal.
-  extraEnvironmentVars: {}
+  extraEnvironmentVars:
     # GOOGLE_REGION: global
     # GOOGLE_PROJECT: myproject
     # GOOGLE_APPLICATION_CREDENTIALS: /vault/userconfig/myproject/myproject-creds.json
+    VAULT_CACERT: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    VAULT_TLSCERT: /vault/userconfig/vault-ha-tls/vault.crt
+    VAULT_TLSKEY: /vault/userconfig/vault-ha-tls/vault.key
 
   # extraSecretEnvironmentVars is a list of extra environment variables to set with the stateful set.
   # These variables take value from existing Secret objects.
@@ -929,6 +929,13 @@ server:
 
         storage "raft" {
             path = "/vault/data"
+        
+            retry_join {
+              leader_api_addr = "https://vault-active:8200"
+              leader_client_cert_file = "/vault/userconfig/vault-ha-tls/vault.crt"
+              leader_client_key_file = "/vault/userconfig/vault-ha-tls/vault.key"
+              leader_ca_cert_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+            }
         }
 
         disable_mlock = true

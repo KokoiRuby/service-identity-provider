@@ -21,7 +21,10 @@ import (
 	"time"
 )
 
-const VAULT_SERVICE_NAME = "vault-internal"
+const (
+	VAULT_INTERNAL_SERVICE_NAME = "vault-internal"
+	VAULT_ACTIVE_SERVICE_NAME   = "vault-active"
+)
 
 var (
 	ctx       context.Context
@@ -77,13 +80,15 @@ func main() {
 		&x509.CertificateRequest{
 			Subject: pkix.Name{
 				Organization: []string{"system:nodes"},
-				CommonName:   "system:node:*." + ns + ".svc." + clusterName,
+				CommonName:   "system:node:" + VAULT_INTERNAL_SERVICE_NAME + "." + ns + ".svc",
 			},
 			SignatureAlgorithm: x509.ECDSAWithSHA256,
 			DNSNames: []string{
-				"*." + VAULT_SERVICE_NAME,
-				"*." + VAULT_SERVICE_NAME + "." + ns + ".svc." + clusterName,
-				"*." + ns,
+				VAULT_ACTIVE_SERVICE_NAME,
+				"*." + VAULT_INTERNAL_SERVICE_NAME,
+				"*." + VAULT_INTERNAL_SERVICE_NAME + "." + ns,
+				"*." + VAULT_INTERNAL_SERVICE_NAME + "." + ns + ".svc.",
+				"*." + VAULT_INTERNAL_SERVICE_NAME + "." + ns + ".svc." + clusterName,
 			},
 			IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
 		},

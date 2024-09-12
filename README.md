@@ -171,8 +171,6 @@ TODO...
 
 ### TODO...
 
-- Vault in TLS mode
-- Vault HA
 - Certificate Renewal
 - Decouple config from
 - ++ more customizable fields for CR
