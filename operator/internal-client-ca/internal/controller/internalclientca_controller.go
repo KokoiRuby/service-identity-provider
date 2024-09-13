@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"net/http"
 	"os"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,6 +40,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const VAULT_INTERNAL_SERVICE_NAME = "vault-internal"
 
 var (
 	clientCATTL   = "876000h"
@@ -90,7 +93,7 @@ func (r *InternalClientCAReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// 2. Parse CR
 	clientCAPath := "sip-client-ca/" + intClientCA.Spec.Certificate.Subject.CN + "-ca/"
 
-	// 3. create pki for client authn
+	// 3. Create pki for client authn
 	listResp, err := r.ClientV.System.MountsListSecretsEngines(ctx)
 	if err != nil {
 		logger.Error(err, "failed to list secrets engine")
@@ -100,7 +103,7 @@ func (r *InternalClientCAReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// TODO: Robustness
 	if _, ok := listResp.Data[clientCAPath]; !ok {
 		logger.Info("Secrets engine " + clientCAPath + " not found. Enabling...")
-		cert, err := r.enablePKIClientCA(ctx, clientCAPath)
+		cert, err := r.enablePKIClientCA(ctx, &intClientCA, strings.TrimSuffix(clientCAPath, "/"))
 		if err != nil {
 			logger.Error(err, "failed to enable client ca pki")
 			return ctrl.Result{}, err
@@ -119,7 +122,9 @@ func (r *InternalClientCAReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	} else {
 		logger.Info("Secrets engine " + clientCAPath + " is already enabled.")
-		caCert, err := r.ClientV.Secrets.PkiReadCaPem(ctx, vault.WithMountPath(clientCAPath))
+		// Error reading sip-root-ca/ca/pem: invalid character '-' in numeric literal
+		//caCert, err := r.ClientV.Secrets.PkiReadCaPem(ctx, vault.WithMountPath(strings.TrimSuffix(clientCAPath, "/")))
+		caCert, err := r.ClientV.Secrets.PkiReadCertCaChain(ctx, vault.WithMountPath(strings.TrimSuffix(clientCAPath, "/")))
 		if err != nil {
 			logger.Error(err, "failed to get ca cert of "+clientCAPath+" secrets engine")
 			return ctrl.Result{}, err
@@ -129,17 +134,24 @@ func (r *InternalClientCAReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			logger.Error(err, "failed to create secret from InternalClientCA")
 			return ctrl.Result{}, err
 		}
+
+		logger.Info("Updating secret...")
 		err = r.Client.Update(ctx, secret)
 		if err != nil {
-			if !apierrors.IsAlreadyExists(err) {
-				return ctrl.Result{}, err
+			if apierrors.IsNotFound(err) {
+				logger.Info("Secret not found. Creating...")
+				err = r.Client.Create(ctx, secret)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
 			}
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, err
 	}
 }
 
-func (r *InternalClientCAReconciler) enablePKIClientCA(ctx context.Context, path string) (cert string, err error) {
+func (r *InternalClientCAReconciler) enablePKIClientCA(ctx context.Context, intClientCA *v1alpha1.InternalClientCA, path string) (cert string, err error) {
 	logger := log.FromContext(ctx)
 
 	logger.Info("1. Enable " + path + " secrets engine.")
@@ -166,7 +178,7 @@ func (r *InternalClientCAReconciler) enablePKIClientCA(ctx context.Context, path
 	logger.Info("3. Configure Root CA keypair.")
 	clientCAKeyPair, err := r.ClientV.Secrets.PkiGenerateRoot(ctx, "internal",
 		schema.PkiGenerateRootRequest{
-			CommonName: "sip Internal Root CA",
+			CommonName: intClientCA.Spec.Certificate.Subject.CN,
 			KeyType:    "ec",
 			KeyBits:    256,
 			Ttl:        clientCATTL,
@@ -180,8 +192,8 @@ func (r *InternalClientCAReconciler) enablePKIClientCA(ctx context.Context, path
 	logger.Info("4. Update CRL location & issuing certificates for " + path + " secrets engine.")
 	_, err = r.ClientV.Secrets.PkiConfigureUrls(ctx,
 		schema.PkiConfigureUrlsRequest{
-			IssuingCertificates:   []string{"https://vault:8200/v1/" + path + "/ca"},
-			CrlDistributionPoints: []string{"https://vault:8200/v1/" + path + "/crl"},
+			IssuingCertificates:   []string{"https://" + VAULT_INTERNAL_SERVICE_NAME + ":8200/v1/" + path + "/ca"},
+			CrlDistributionPoints: []string{"https://" + VAULT_INTERNAL_SERVICE_NAME + ":8200/v1/" + path + "/crl"},
 		},
 		vault.WithMountPath(path))
 	if err != nil {
@@ -246,7 +258,7 @@ func (r *InternalClientCAReconciler) buildSecretFrom(intClientCA *v1alpha1.Inter
 }
 
 func disableFlag(pki, role, token string) {
-	req, err := http.NewRequest("PATCH", "http://127.0.0.1:8200/v1/"+pki+"/roles/"+role, bytes.NewBuffer(patchBody))
+	req, err := http.NewRequest("PATCH", "https://"+VAULT_INTERNAL_SERVICE_NAME+":8200/v1/"+pki+"/roles/"+role, bytes.NewBuffer(patchBody))
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return

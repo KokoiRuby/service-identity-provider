@@ -1,0 +1,401 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+    control-plane: controller-manager
+  name: sip
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
+  name: internalclientcas.sip.sec.com
+spec:
+  group: sip.sec.com
+  names:
+    kind: InternalClientCA
+    listKind: InternalClientCAList
+    plural: internalclientcas
+    shortNames:
+    - intclica
+    - intclicas
+    singular: internalclientca
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.certificate.subject.cn
+      name: CN
+      type: string
+    - jsonPath: .spec.secret.name
+      name: Secret
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: InternalClientCA is used to request a client CA certificate from
+          sip.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: InternalClientCASpec defines the desired state of InternalClientCA
+            properties:
+              certificate:
+                description: Certificate defines properties related to the content
+                  of the CA certificate.
+                properties:
+                  subject:
+                    description: Subject defines properties related to the content
+                      of the CA certificate.
+                    properties:
+                      cn:
+                        description: The Subject Common Name (CN) of the CA certificate.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - cn
+                    type: object
+                required:
+                - subject
+                type: object
+              secret:
+                description: Secret defines properties related to the storage of the
+                  certification
+                properties:
+                  certName:
+                    description: |-
+                      The YAML key name of the CA certificate in the secret.
+                      If not given, 'ca.pem' is used.
+                    pattern: ^[^\s]+$
+                    type: string
+                  name:
+                    description: The secret where the CA certificate is stored. The
+                      same secret should not be used for multiple purposes.
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - certificate
+            - secret
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+  name: internal-client-ca-controller-manager
+  namespace: sip
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+  name: internal-client-ca-leader-election-role
+  namespace: sip
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+  name: internal-client-ca-internalclientca-editor-role
+rules:
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+  name: internal-client-ca-internalclientca-viewer-role
+rules:
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: internal-client-ca-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalclientcas/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: internal-client-ca-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: internal-client-ca-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+  name: internal-client-ca-leader-election-rolebinding
+  namespace: sip
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: internal-client-ca-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: internal-client-ca-controller-manager
+  namespace: sip
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+  name: internal-client-ca-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: internal-client-ca-manager-role
+subjects:
+- kind: ServiceAccount
+  name: internal-client-ca-controller-manager
+  namespace: sip
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: internal-client-ca-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: internal-client-ca-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: internal-client-ca-controller-manager
+  namespace: sip
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+    control-plane: controller-manager
+  name: internal-client-ca-controller-manager-metrics-service
+  namespace: sip
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-client-ca
+    control-plane: controller-manager
+  name: internal-client-ca-controller-manager
+  namespace: sip
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: yukanyan/sip-intclica:v1.1.0
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: internal-client-ca-controller-manager
+      terminationGracePeriodSeconds: 10

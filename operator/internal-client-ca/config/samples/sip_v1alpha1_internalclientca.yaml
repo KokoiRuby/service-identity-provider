@@ -12,5 +12,5 @@ spec:
       cn: service-provider
   secret:
     name: service-provider-ca
-    certName: ca.pem
+    certName: client-ca.pem
     
