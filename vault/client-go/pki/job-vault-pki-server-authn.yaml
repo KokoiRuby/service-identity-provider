@@ -9,6 +9,6 @@ spec:
       serviceAccountName: vault-initiator
       containers:
         - name: vault-pki-server-authn
-          image: yukanyan/vault-pki-server-authn:v1.1.0
+          image: yukanyan/vault-pki-server-authn:v1.1.3
       restartPolicy: Never
   backoffLimit: 4

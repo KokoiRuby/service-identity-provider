@@ -18,6 +18,8 @@ import (
 	"os"
 )
 
+const VAULT_INTERNAL_SERVICE_NAME = "vault-internal"
+
 var (
 	ctx context.Context
 
@@ -52,19 +54,25 @@ func init() {
 	clientK = kubernetes.NewForConfigOrDie(kubeConf)
 
 	// vault root token
+	// TODO: not safe, find another place to keep root token
 	existedSecretForRootToken, _ := clientK.CoreV1().Secrets(ns).Get(ctx, "vault-root-token", metav1.GetOptions{})
 	rootToken = string(existedSecretForRootToken.Data["token"])
 
 	// setup client to vault
+	tlsConf := vault.TLSConfiguration{}
+	tlsConf.ServerCertificate.FromFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
 	log.Println("Setup client to vault.")
 	clientV, err = vault.New(
-		vault.WithAddress("http://vault:8200"),
+		vault.WithAddress("https://"+VAULT_INTERNAL_SERVICE_NAME+":8200"),
+		vault.WithTLS(tlsConf),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// authn against root token
+	// TODO: not safe, find another place to keep root token
 	if err := clientV.SetToken(rootToken); err != nil {
 		log.Fatal(err)
 	}
@@ -165,8 +173,8 @@ func enablePKIRootCA() {
 	log.Println("4. Update CRL location & issuing certificates for sip-root-ca/ secrets engine.")
 	_, err = clientV.Secrets.PkiConfigureUrls(ctx,
 		schema.PkiConfigureUrlsRequest{
-			IssuingCertificates:   []string{"https://vault:8200/v1/" + rootCAPath + "/ca"},
-			CrlDistributionPoints: []string{"https://vault:8200/v1/" + rootCAPath + "/crl"},
+			IssuingCertificates:   []string{"https://" + VAULT_INTERNAL_SERVICE_NAME + ":8200/v1/" + rootCAPath + "/ca"},
+			CrlDistributionPoints: []string{"https://" + VAULT_INTERNAL_SERVICE_NAME + ":8200/v1/" + rootCAPath + "/crl"},
 		},
 		vault.WithMountPath(rootCAPath))
 	if err != nil {
@@ -189,14 +197,6 @@ func enablePKIRootCA() {
 	}
 
 	disableFlag(rootCAPath, rootCARole)
-	//roleResp, err := clientV.Secrets.PkiReadRole(ctx, "root-ca", vault.WithMountPath(rootCAPath))
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//log.Println(roleResp.Data.ServerFlag)
-	//log.Println(roleResp.Data.ClientFlag)
-	//log.Println(roleResp.Data.KeyUsage)
-	//log.Println(roleResp.Data.ExtKeyUsage)
 
 }
 
@@ -220,8 +220,8 @@ func enablePKIIntermCA() {
 	log.Println("3. Update CRL location & issuing certificates for sip-interm-ca/ secrets engine.")
 	_, err = clientV.Secrets.PkiConfigureUrls(ctx,
 		schema.PkiConfigureUrlsRequest{
-			IssuingCertificates:   []string{"https://vault:8200/v1/" + intermCAPath + "/ca"},
-			CrlDistributionPoints: []string{"https://vault:8200/v1/" + intermCAPath + "/crl"},
+			IssuingCertificates:   []string{"https://" + VAULT_INTERNAL_SERVICE_NAME + ":8200/v1/" + intermCAPath + "/ca"},
+			CrlDistributionPoints: []string{"https://" + VAULT_INTERNAL_SERVICE_NAME + ":8200/v1/" + intermCAPath + "/crl"},
 		},
 		vault.WithMountPath(intermCAPath))
 	if err != nil {
@@ -245,14 +245,6 @@ func enablePKIIntermCA() {
 	}
 
 	disableFlag(intermCAPath, intermCARole)
-	//roleResp, err := clientV.Secrets.PkiReadRole(ctx, "interm-ca", vault.WithMountPath(intermCAPath))
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//log.Println(roleResp.Data.ServerFlag)
-	//log.Println(roleResp.Data.ClientFlag)
-	//log.Println(roleResp.Data.KeyUsage)
-	//log.Println(roleResp.Data.ExtKeyUsage)
 
 	log.Println("5. Generate intermediate CA CSR.")
 	csrResp, err := clientV.Secrets.PkiGenerateIntermediate(
@@ -314,7 +306,7 @@ func enablePKIIntermCA() {
 }
 
 func disableFlag(pki, role string) {
-	req, err := http.NewRequest("PATCH", "http://vault:8200/v1/"+pki+"/roles/"+role, bytes.NewBuffer(patchBody))
+	req, err := http.NewRequest("PATCH", "https://"+VAULT_INTERNAL_SERVICE_NAME+":8200/v1/"+pki+"/roles/"+role, bytes.NewBuffer(patchBody))
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return

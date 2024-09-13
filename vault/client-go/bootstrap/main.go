@@ -85,6 +85,8 @@ func main() {
 			SignatureAlgorithm: x509.ECDSAWithSHA256,
 			DNSNames: []string{
 				VAULT_ACTIVE_SERVICE_NAME,
+				// Fix: Get "https://vault-internal:8200/v1/sys/mounts": tls: failed to verify certificate: x509: certificate is valid for vault-active, *.vault-internal, *.vault-internal.sip, *.vault-internal.sip.svc., *.vault-internal.sip.svc.cluster.local, not vault-internal
+				VAULT_INTERNAL_SERVICE_NAME,
 				"*." + VAULT_INTERNAL_SERVICE_NAME,
 				"*." + VAULT_INTERNAL_SERVICE_NAME + "." + ns,
 				"*." + VAULT_INTERNAL_SERVICE_NAME + "." + ns + ".svc.",
