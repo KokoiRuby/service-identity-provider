@@ -446,7 +446,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: yukanyan/sip-intcert:v1.0.6
+        image: yukanyan/sip-intcert:v1.1.0
         livenessProbe:
           httpGet:
             path: /healthz

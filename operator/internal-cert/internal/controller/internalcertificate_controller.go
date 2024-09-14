@@ -33,8 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const VAULT_INTERNAL_SERVICE_NAME = "vault-internal"
-
 // InternalCertificateReconciler reconciles a InternalCertificate object
 type InternalCertificateReconciler struct {
 	client.Client
@@ -77,45 +75,54 @@ func (r *InternalCertificateReconciler) Reconcile(ctx context.Context, req ctrl.
 	// 2. Parse CR and determine which pki to call
 	// TODO: ++Validation Webhook, so we could skip if cond, to be verified
 	if intCert.Spec.Certificate.ExtendedKeyUsage.ClientAuth {
-		// client authn pki
-		cn := intCert.Spec.Certificate.Subject.CN
-		issuer := intCert.Spec.Certificate.Issuer.Reference
 
-		logger.Info("Issue CA from Client CA")
-		issueResp, err := r.ClientV.Secrets.PkiIssueWithRole(ctx, "client-ca",
-			schema.PkiIssueWithRoleRequest{
-				CommonName: cn,
-				AltNames:   cn + ", " + cn + ".sip, " + cn + ".sip.svc, " + cn + ".sip.svc.cluster.local",
-			},
-			vault.WithMountPath("sip-client-ca/"+issuer))
-		if err != nil {
-			logger.Error(err, "Unable to issue client-ca")
-			return ctrl.Result{}, err
+		// check if secret exists
+		var secret corev1.Secret
+		objKey := types.NamespacedName{
+			Namespace: req.Namespace,
+			Name:      intCert.Spec.Secret.Name,
 		}
-
-		logger.Info("Build secret from InternalCert")
-		secret, err := r.buildSecretFrom(&intCert, issueResp)
+		err := r.Client.Get(ctx, objKey, &secret)
 		if err != nil {
-			logger.Error(err, "Unable to build secret from InternalCertificate")
-			return ctrl.Result{}, err
-		}
-		logger.Info("Created secret", "secret", secret.Name)
-		logger.Info("Created secret", "secret", secret.Data["tls.crt"])
-		logger.Info("Created secret", "secret", secret.Data["tls.key"])
-
-		logger.Info("Create secret")
-		err = r.Client.Create(ctx, secret)
-		if err != nil {
-			if apierrors.IsAlreadyExists(err) {
-				logger.Info("Secret already exists. Updating...")
-				err = r.Client.Update(ctx, secret)
-				if err != nil {
-					return ctrl.Result{}, err
-				}
+			if apierrors.IsNotFound(err) {
+				logger.Info("Secret does not exist. Creating...")
 			}
-			logger.Error(err, "Unable to create secret")
-			return ctrl.Result{}, err
+
+			// client authn pki
+			cn := intCert.Spec.Certificate.Subject.CN
+			issuer := intCert.Spec.Certificate.Issuer.Reference
+
+			issueResp, err := r.ClientV.Secrets.PkiIssueWithRole(ctx, "client-ca",
+				schema.PkiIssueWithRoleRequest{
+					CommonName: cn,
+					AltNames:   cn + ", " + cn + ".sip, " + cn + ".sip.svc, " + cn + ".sip.svc.cluster.local",
+				},
+				vault.WithMountPath("sip-client-ca/"+issuer))
+			if err != nil {
+				logger.Error(err, "Unable to issue client-ca")
+				return ctrl.Result{}, err
+			}
+
+			secret, err := r.buildSecretFrom(&intCert, issueResp)
+			if err != nil {
+				logger.Error(err, "Unable to build secret from InternalCertificate")
+				return ctrl.Result{}, err
+			}
+
+			err = r.Client.Create(ctx, secret)
+			if err != nil {
+				if apierrors.IsAlreadyExists(err) {
+					logger.Info("Secret already exists. Updating...")
+					err = r.Client.Update(ctx, secret)
+					if err != nil {
+						return ctrl.Result{}, err
+					}
+				}
+				logger.Error(err, "Unable to create secret")
+				return ctrl.Result{}, err
+			}
 		}
+		return ctrl.Result{}, nil
 
 	} else if intCert.Spec.Certificate.ExtendedKeyUsage.ServerAuth {
 
@@ -144,7 +151,6 @@ func (r *InternalCertificateReconciler) Reconcile(ctx context.Context, req ctrl.
 				}
 
 				// build secret from
-				// TODO: ++ ca chain
 				secret, err := r.buildSecretFrom(&intCert, issueResp)
 				if err != nil {
 					logger.Error(err, "Unable to build secret from InternalCertificate")
@@ -163,19 +169,26 @@ func (r *InternalCertificateReconciler) Reconcile(ctx context.Context, req ctrl.
 	} else {
 		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, nil
 }
 
 func (r *InternalCertificateReconciler) buildSecretFrom(intCert *sipv1alpha1.InternalCertificate, issueResp *vault.Response[schema.PkiIssueWithRoleResponse]) (*corev1.Secret, error) {
+
+	var cert string
+	if intCert.Spec.Certificate.ExtendedKeyUsage.ClientAuth {
+		cert = issueResp.Data.Certificate
+	} else {
+		// only server auth needs ca chain
+		cert = issueResp.Data.CaChain[0] + "\n" + issueResp.Data.Certificate
+	}
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intCert.Spec.Secret.Name,
 			Namespace: intCert.Namespace,
 		},
 		StringData: map[string]string{
-			intCert.Spec.Secret.KeyName: issueResp.Data.PrivateKey,
-			// TODO: ++ ca chain
-			intCert.Spec.Secret.CertName: issueResp.Data.CaChain[0] + "\n" + issueResp.Data.Certificate,
+			intCert.Spec.Secret.KeyName:  issueResp.Data.PrivateKey,
+			intCert.Spec.Secret.CertName: cert,
 		},
 		// Type: corev1.SecretTypeTLS
 		// KubeAPIWarningLogger    tls: private key does not match public key if ++ ca chain
