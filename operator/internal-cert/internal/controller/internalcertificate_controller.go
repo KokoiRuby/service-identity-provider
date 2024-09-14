@@ -18,12 +18,11 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"github.com/hashicorp/vault-client-go"
 	"github.com/hashicorp/vault-client-go/schema"
-	"net/http"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -33,6 +32,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const VAULT_INTERNAL_SERVICE_NAME = "vault-internal"
 
 // InternalCertificateReconciler reconciles a InternalCertificate object
 type InternalCertificateReconciler struct {
@@ -69,73 +70,99 @@ func (r *InternalCertificateReconciler) Reconcile(ctx context.Context, req ctrl.
 			logger.Info("InternalCertificate resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "unable to get InternalCertificate")
+		logger.Error(err, "Unable to get InternalCertificate")
 		return ctrl.Result{}, err
 	}
 
 	// 2. Parse CR and determine which pki to call
-	// TODO: ++Validation Webhook, so we could skip if cond
-	if intCert.Spec.Certificate.ExtendedKeyUsage.ClientAuth && !intCert.Spec.Certificate.ExtendedKeyUsage.ServerAuth {
+	// TODO: ++Validation Webhook, so we could skip if cond, to be verified
+	if intCert.Spec.Certificate.ExtendedKeyUsage.ClientAuth {
 		// client authn pki
 		cn := intCert.Spec.Certificate.Subject.CN
 		issuer := intCert.Spec.Certificate.Issuer.Reference
 
+		logger.Info("Issue CA from Client CA")
 		issueResp, err := r.ClientV.Secrets.PkiIssueWithRole(ctx, "client-ca",
 			schema.PkiIssueWithRoleRequest{
 				CommonName: cn,
 				AltNames:   cn + ", " + cn + ".sip, " + cn + ".sip.svc, " + cn + ".sip.svc.cluster.local",
 			},
-			vault.WithMountPath("sip-client-ca"+"/"+issuer))
+			vault.WithMountPath("sip-client-ca/"+issuer))
 		if err != nil {
-			logger.Error(err, "unable to issue client-ca")
+			logger.Error(err, "Unable to issue client-ca")
 			return ctrl.Result{}, err
 		}
 
+		logger.Info("Build secret from InternalCert")
 		secret, err := r.buildSecretFrom(&intCert, issueResp)
 		if err != nil {
-			logger.Error(err, "unable to build secret from InternalCertificate")
+			logger.Error(err, "Unable to build secret from InternalCertificate")
 			return ctrl.Result{}, err
 		}
+		logger.Info("Created secret", "secret", secret.Name)
+		logger.Info("Created secret", "secret", secret.Data["tls.crt"])
+		logger.Info("Created secret", "secret", secret.Data["tls.key"])
 
+		logger.Info("Create secret")
 		err = r.Client.Create(ctx, secret)
 		if err != nil {
-			logger.Error(err, "unable to create secret")
+			if apierrors.IsAlreadyExists(err) {
+				logger.Info("Secret already exists. Updating...")
+				err = r.Client.Update(ctx, secret)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			logger.Error(err, "Unable to create secret")
 			return ctrl.Result{}, err
 		}
 
-	} else if !intCert.Spec.Certificate.ExtendedKeyUsage.ClientAuth && intCert.Spec.Certificate.ExtendedKeyUsage.ServerAuth {
-		// server authn pki
-		cn := intCert.Spec.Certificate.Subject.CN
-		issueResp, err := r.ClientV.Secrets.PkiIssueWithRole(ctx, "interm-ca",
-			schema.PkiIssueWithRoleRequest{
-				CommonName: cn,
-				AltNames:   cn + ", " + cn + ".sip, " + cn + ".sip.svc, " + cn + ".sip.svc.cluster.local",
-			},
-			vault.WithMountPath("sip-interm-ca"))
+	} else if intCert.Spec.Certificate.ExtendedKeyUsage.ServerAuth {
+
+		// check if secret exists
+		var secret corev1.Secret
+		objKey := types.NamespacedName{
+			Namespace: req.Namespace,
+			Name:      intCert.Spec.Secret.Name,
+		}
+		err := r.Client.Get(ctx, objKey, &secret)
 		if err != nil {
-			logger.Error(err, "unable to issue interm-ca")
-			return ctrl.Result{}, err
-		}
+			if apierrors.IsNotFound(err) {
+				logger.Info("Secret does not exist. Creating...")
 
-		secret, err := r.buildSecretFrom(&intCert, issueResp)
-		if err != nil {
-			logger.Error(err, "unable to build secret from InternalCertificate")
-			return ctrl.Result{}, err
-		}
+				// server authn pki
+				cn := intCert.Spec.Certificate.Subject.CN
+				issueResp, err := r.ClientV.Secrets.PkiIssueWithRole(ctx, "interm-ca",
+					schema.PkiIssueWithRoleRequest{
+						CommonName: cn,
+						AltNames:   cn + ", " + cn + ".sip, " + cn + ".sip.svc, " + cn + ".sip.svc.cluster.local",
+					},
+					vault.WithMountPath("sip-interm-ca"))
+				if err != nil {
+					logger.Error(err, "Unable to issue interm-ca")
+					return ctrl.Result{}, err
+				}
 
-		err = r.Client.Create(ctx, secret)
-		if err != nil {
-			logger.Error(err, "unable to create secret")
-			return ctrl.Result{}, err
-		}
+				// build secret from
+				// TODO: ++ ca chain
+				secret, err := r.buildSecretFrom(&intCert, issueResp)
+				if err != nil {
+					logger.Error(err, "Unable to build secret from InternalCertificate")
+					return ctrl.Result{}, err
+				}
 
+				// create secret
+				err = r.Client.Create(ctx, secret)
+				if err != nil {
+					logger.Error(err, "Unable to create secret")
+					return ctrl.Result{}, err
+				}
+			}
+		}
 		return ctrl.Result{}, nil
-
 	} else {
-		logger.Error(errors.New("certificate usages must be either ClientAuth or ServerAuth"), "")
 		return ctrl.Result{}, nil
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -146,10 +173,13 @@ func (r *InternalCertificateReconciler) buildSecretFrom(intCert *sipv1alpha1.Int
 			Namespace: intCert.Namespace,
 		},
 		StringData: map[string]string{
-			intCert.Spec.Secret.KeyName:  issueResp.Data.PrivateKey,
-			intCert.Spec.Secret.CertName: issueResp.Data.Certificate,
+			intCert.Spec.Secret.KeyName: issueResp.Data.PrivateKey,
+			// TODO: ++ ca chain
+			intCert.Spec.Secret.CertName: issueResp.Data.CaChain[0] + "\n" + issueResp.Data.Certificate,
 		},
-		Type: corev1.SecretTypeTLS,
+		// Type: corev1.SecretTypeTLS
+		// KubeAPIWarningLogger    tls: private key does not match public key if ++ ca chain
+		Type: corev1.SecretTypeOpaque,
 	}
 
 	if err := ctrl.SetControllerReference(intCert, secret, r.Scheme); err != nil {

@@ -1,0 +1,593 @@
+#apiVersion: v1
+#kind: Namespace
+#metadata:
+#  labels:
+#    app.kubernetes.io/managed-by: kustomize
+#    app.kubernetes.io/name: internal-cert
+#    control-plane: controller-manager
+#  name: sip
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: sip/sip-internal-cert-serving-cert
+    controller-gen.kubebuilder.io/version: v0.16.1
+  labels:
+    sip: intcert
+  name: internalcertificates.sip.sec.com
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: sip-internal-cert-webhook-service
+          namespace: sip
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: sip.sec.com
+  names:
+    kind: InternalCertificate
+    listKind: InternalCertificateList
+    plural: internalcertificates
+    shortNames:
+    - intcert
+    - intcerts
+    singular: internalcertificate
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.certificate.subject.cn
+      name: CN
+      type: string
+    - jsonPath: .spec.secret.name
+      name: Secret
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: InternalCertificate is the Schema for the internalcertificates
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: InternalCertificateSpec defines the desired state of InternalCertificate
+            properties:
+              certificate:
+                description: Certificate defines properties related to the content
+                  of the CA certificate.
+                properties:
+                  extendedKeyUsage:
+                    description: |-
+                      ExtendedKeyUsage represents an extended set of actions that are valid for a given key.
+                      https://pkg.go.dev/crypto/x509#ExtKeyUsage
+                    properties:
+                      clientAuth:
+                        type: boolean
+                      serverAuth:
+                        type: boolean
+                    required:
+                    - clientAuth
+                    - serverAuth
+                    type: object
+                  issuer:
+                    description: Issuer indicates the issuer of certificate
+                    properties:
+                      reference:
+                        description: The identifier for the Issuer CA.
+                        pattern: ^[^\s]+$
+                        type: string
+                    type: object
+                  subject:
+                    description: Subject defines properties related to the content
+                      of the CA certificate.
+                    properties:
+                      cn:
+                        description: The Subject Common Name (CN) of the CA certificate.
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                    required:
+                    - cn
+                    type: object
+                required:
+                - extendedKeyUsage
+                - subject
+                type: object
+              secret:
+                description: Secret defines properties related to the storage of the
+                  certification
+                properties:
+                  certName:
+                    description: |-
+                      The YAML certificate name of the server certificate in the secret.
+                      If not given, 'tls.crt' is used.
+                    pattern: ^[^\s]+$
+                    type: string
+                  keyName:
+                    description: |-
+                      The YAML key name of the server certificate in the secret.
+                      If not given, 'tls.key' is used.
+                    pattern: ^[^\s]+$
+                    type: string
+                  name:
+                    description: The secret where the server certificate is stored.
+                      The same secret should not be used for multiple purposes.
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - certificate
+            - secret
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-controller-manager
+  namespace: sip
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-leader-election-role
+  namespace: sip
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-internalcertificate-editor-role
+rules:
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-internalcertificate-viewer-role
+rules:
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    sip: intcert
+  name: sip-internal-cert-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - sip.sec.com
+  resources:
+  - internalcertificates/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    sip: intcert
+  name: sip-internal-cert-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    sip: intcert
+  name: sip-internal-cert-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-leader-election-rolebinding
+  namespace: sip
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sip-internal-cert-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: sip-internal-cert-controller-manager
+  namespace: sip
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sip-internal-cert-manager-role
+subjects:
+- kind: ServiceAccount
+  name: sip-internal-cert-controller-manager
+  namespace: sip
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    sip: intcert
+  name: sip-internal-cert-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sip-internal-cert-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: sip-internal-cert-controller-manager
+  namespace: sip
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    control-plane: controller-manager
+    sip: intcert
+  name: sip-internal-cert-controller-manager-metrics-service
+  namespace: sip
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    control-plane: controller-manager
+    sip: intcert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-webhook-service
+  namespace: sip
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+    sip: intcert
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    control-plane: controller-manager
+    sip: intcert
+  name: sip-internal-cert-controller-manager
+  namespace: sip
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+      sip: intcert
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+        sip: intcert
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: yukanyan/sip-intcert:v1.0.6
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: sip-internal-cert-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/created-by: internal-cert
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/part-of: internal-cert
+    sip: intcert
+  name: sip-internal-cert-serving-cert
+  namespace: sip
+spec:
+  dnsNames:
+  - sip-internal-cert-webhook-service.sip.svc
+  - sip-internal-cert-webhook-service.sip.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: sip-internal-cert-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-selfsigned-issuer
+  namespace: sip
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: sip/sip-internal-cert-serving-cert
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: internal-cert
+    sip: intcert
+  name: sip-internal-cert-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: sip-internal-cert-webhook-service
+      namespace: sip
+      path: /mutate-sip-sec-com-v1alpha1-internalcertificate
+  failurePolicy: Fail
+  name: minternalcertificate.kb.io
+  rules:
+  - apiGroups:
+    - sip.sec.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - internalcertificates
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: sip/sip-internal-cert-serving-cert
+  labels:
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/created-by: internal-cert
+    app.kubernetes.io/instance: validating-webhook-configuration
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: validatingwebhookconfiguration
+    app.kubernetes.io/part-of: internal-cert
+    sip: intcert
+  name: sip-internal-cert-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: sip-internal-cert-webhook-service
+      namespace: sip
+      path: /validate-sip-sec-com-v1alpha1-internalcertificate
+  failurePolicy: Fail
+  name: vinternalcertificate.kb.io
+  rules:
+  - apiGroups:
+    - sip.sec.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - internalcertificates
+  sideEffects: None

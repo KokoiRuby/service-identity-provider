@@ -1,17 +1,19 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: internal-client-ca
-    control-plane: controller-manager
-  name: sip
+#apiVersion: v1
+#kind: Namespace
+#metadata:
+#  labels:
+#    app.kubernetes.io/managed-by: kustomize
+#    app.kubernetes.io/name: internal-client-ca
+#    control-plane: controller-manager
+#  name: sip
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
+  labels:
+    sip: intclica
   name: internalclientcas.sip.sec.com
 spec:
   group: sip.sec.com
@@ -110,7 +112,8 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: internal-client-ca
-  name: internal-client-ca-controller-manager
+    sip: intclica
+  name: sip-intclica-controller-manager
   namespace: sip
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -119,7 +122,8 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: internal-client-ca
-  name: internal-client-ca-leader-election-role
+    sip: intclica
+  name: sip-intclica-leader-election-role
   namespace: sip
 rules:
 - apiGroups:
@@ -160,7 +164,8 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: internal-client-ca
-  name: internal-client-ca-internalclientca-editor-role
+    sip: intclica
+  name: sip-intclica-internalclientca-editor-role
 rules:
 - apiGroups:
   - sip.sec.com
@@ -187,7 +192,8 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: internal-client-ca
-  name: internal-client-ca-internalclientca-viewer-role
+    sip: intclica
+  name: sip-intclica-internalclientca-viewer-role
 rules:
 - apiGroups:
   - sip.sec.com
@@ -207,7 +213,9 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: internal-client-ca-manager-role
+  labels:
+    sip: intclica
+  name: sip-intclica-manager-role
 rules:
 - apiGroups:
   - ""
@@ -251,7 +259,9 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: internal-client-ca-metrics-auth-role
+  labels:
+    sip: intclica
+  name: sip-intclica-metrics-auth-role
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -269,7 +279,9 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: internal-client-ca-metrics-reader
+  labels:
+    sip: intclica
+  name: sip-intclica-metrics-reader
 rules:
 - nonResourceURLs:
   - /metrics
@@ -282,15 +294,16 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: internal-client-ca
-  name: internal-client-ca-leader-election-rolebinding
+    sip: intclica
+  name: sip-intclica-leader-election-rolebinding
   namespace: sip
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: internal-client-ca-leader-election-role
+  name: sip-intclica-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: internal-client-ca-controller-manager
+  name: sip-intclica-controller-manager
   namespace: sip
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -299,27 +312,30 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: internal-client-ca
-  name: internal-client-ca-manager-rolebinding
+    sip: intclica
+  name: sip-intclica-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: internal-client-ca-manager-role
+  name: sip-intclica-manager-role
 subjects:
 - kind: ServiceAccount
-  name: internal-client-ca-controller-manager
+  name: sip-intclica-controller-manager
   namespace: sip
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: internal-client-ca-metrics-auth-rolebinding
+  labels:
+    sip: intclica
+  name: sip-intclica-metrics-auth-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: internal-client-ca-metrics-auth-role
+  name: sip-intclica-metrics-auth-role
 subjects:
 - kind: ServiceAccount
-  name: internal-client-ca-controller-manager
+  name: sip-intclica-controller-manager
   namespace: sip
 ---
 apiVersion: v1
@@ -329,7 +345,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: internal-client-ca
     control-plane: controller-manager
-  name: internal-client-ca-controller-manager-metrics-service
+    sip: intclica
+  name: sip-intclica-controller-manager-metrics-service
   namespace: sip
 spec:
   ports:
@@ -339,6 +356,7 @@ spec:
     targetPort: 8443
   selector:
     control-plane: controller-manager
+    sip: intclica
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -347,19 +365,22 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: internal-client-ca
     control-plane: controller-manager
-  name: internal-client-ca-controller-manager
+    sip: intclica
+  name: sip-intclica-controller-manager
   namespace: sip
 spec:
   replicas: 1
   selector:
     matchLabels:
       control-plane: controller-manager
+      sip: intclica
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
         control-plane: controller-manager
+        sip: intclica
     spec:
       containers:
       - args:
@@ -369,7 +390,6 @@ spec:
         command:
         - /manager
         image: yukanyan/sip-intclica:v1.1.0
-        imagePullPolicy: Always
         livenessProbe:
           httpGet:
             path: /healthz
@@ -397,5 +417,5 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: internal-client-ca-controller-manager
+      serviceAccountName: sip-intclica-controller-manager
       terminationGracePeriodSeconds: 10

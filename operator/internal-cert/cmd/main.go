@@ -48,6 +48,8 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
+const VAULT_INTERNAL_SERVICE_NAME = "vault-internal"
+
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -86,14 +88,18 @@ func init() {
 
 	// setup client to vault
 	log.Println("Setup client to vault.")
+	tlsConf := vault.TLSConfiguration{}
+	tlsConf.ServerCertificate.FromFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	clientV, err = vault.New(
-		vault.WithAddress("http://127.0.0.1:8200"),
+		vault.WithAddress("https://"+VAULT_INTERNAL_SERVICE_NAME+":8200"),
+		vault.WithTLS(tlsConf),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// authn against root token
+	// TODO: not safe, find another place to keep root token
 	if err := clientV.SetToken(rootToken); err != nil {
 		log.Fatal(err)
 	}
