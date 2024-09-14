@@ -1,0 +1,20 @@
+@startuml Vault-Bootstrap
+collections K8s #LightBlue
+participant Bootstrapper #LightBlue
+
+
+header Service Identity Provider
+
+title Vault Bootstrap
+-> K8s : kubectl apply -f
+Bootstrapper -> Bootstrapper : generate private key & encode to pem
+Bootstrapper -> Bootstrapper : build certificate signing request
+Bootstrapper -> K8s : create certificates.k8s.io/v1/CertificateSigningRequest
+Bootstrapper -> K8s : get certificates.k8s.io/v1/CertificateSigningRequest
+Bootstrapper -> K8s : approve certificates.k8s.io/v1/CertificateSigningRequest
+Bootstrapper -> Bootstrapper : wait 1s for certificate to generate
+Bootstrapper -> Bootstrapper : parse approved certificates.k8s.io/v1/CertificateSigningRequest and build secret
+Bootstrapper -> K8s : create secret
+Bootstrapper -> K8s : delete approved certificates.k8s.io/v1/CertificateSigningRequest
+
+@enduml

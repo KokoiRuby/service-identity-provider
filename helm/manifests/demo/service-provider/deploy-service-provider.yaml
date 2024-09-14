@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-provider
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-provider
+  template:
+    metadata:
+      labels:
+        app: service-provider
+    spec:
+      containers:
+        - name: server
+          image: yukanyan/service-provider:v1.2.2
+          volumeMounts:
+            - mountPath: /opt/app/ca
+              name: client-ca
+            - mountPath: /opt/app/keypair
+              name: keypair
+      volumes:
+        - name: client-ca
+          secret:
+            secretName: service-provider-ca
+        - name: keypair
+          secret:
+            secretName: service-provider-cert

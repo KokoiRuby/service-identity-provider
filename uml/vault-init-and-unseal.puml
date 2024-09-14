@@ -1,0 +1,21 @@
+@startuml Vault-Init-and-Unseal
+collections K8s #LightBlue
+participant Initializer #LightBlue
+database Vault #LightBlue
+
+
+header Service Identity Provider
+
+title Vault Initialize & Unseal
+-> K8s : kubectl apply -f
+alt#Gold #LightGreen Not Initialized
+Initializer -> Vault : vault operator init
+Initializer -> Vault : vault operator unseal with goroutines
+Initializer -> Initializer : build secret for unseal-key & root-token
+Initializer -> K8s : create secret for unseal-key & root-token
+end
+alt#Gold #LightGreen Initialized
+Initializer -> K8s : get secret for unseal-key
+Initializer -> Vault : vault operator unseal with goroutines
+end
+@enduml

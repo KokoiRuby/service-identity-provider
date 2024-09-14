@@ -6,7 +6,7 @@ database Vault #LightBlue
 header Service Identity Provider
 
 title InternalClientCA Operator
--> Operator : {Create/Update/Delete}InternalClientCA Events
+-> Operator : InternalClientCA Events
     alt#Gold #LightGreen
         Operator -> K8s : get InternalClientCA
         alt#Gold #LightGreen
@@ -16,15 +16,15 @@ title InternalClientCA Operator
                 alt#Gold #LightGreen
                     Operator -> Operator : build secret from InternalClientCA
                     alt#Gold #LightGreen
-                        Operator -> Vault : create secret
-                        Operator <- Vault : created
-                    else #Pink End Reconciliation
-                        Operator <- Vault : failed to create secret
+                        Operator -> K8s : create secret
+                        Operator <- K8s : created
+                    else #Pink End of Reconciliation
+                        Operator <- K8s : failed to create secret
                     end
-                else #Pink End Reconciliation
+                else #Pink End of Reconciliation
                     Operator -> Operator : failed to build secret from InternalClientCA
                 end
-            else #Pink End Reconciliation
+            else #Pink End of Reconciliation
                 Operator <- Vault : failed to enable PKI secrets engine
             end
             alt#Gold #LightGreen PKI secrets engine is already enabled
@@ -32,21 +32,29 @@ title InternalClientCA Operator
                 alt#Gold #LightGreen
                     Operator -> Operator : build secret from client CA cert
                     alt#Gold #LightGreen
-                        Operator -> Vault : create secret
-                        Operator <- Vault : created
-                    else #Pink End Reconciliation
-                        Operator <- Vault : failed to create secret
+                        Operator -> K8s : update secret
+                        Operator <- K8s : updated
+                    else #Pink End of Reconciliation
+                        Operator <- K8s : failed to update secret
                     end
-                else #Pink End Reconciliation
+                    alt#Gold #LightGreen
+                        Operator -> K8s : update secret
+                        Operator <- K8s : secret not found
+                        Operator -> K8s : create secret
+                        Operator <- K8s : created
+                    else #Pink End of Reconciliation
+                        Operator <- K8s : failed to create secret
+                    end
+                else #Pink End of Reconciliation
                     Operator -> Operator : failed to build secret from client CA cert
                 end
-            else  #Pink End Reconciliation
+            else  #Pink End of Reconciliation
                 Operator <- Vault : failed to get client CA cert
             end
-        else #Pink End Reconciliation
+        else #Pink End of Reconciliation
             Operator <- Vault : failed to list PKI secrets engine
         end
-    else #Pink End Reconciliation
+    else #Pink End of Reconciliation
         K8s -> Operator : InternalCertificate not found
     end
 

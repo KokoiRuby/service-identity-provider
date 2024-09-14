@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-consumer
+  template:
+    metadata:
+      labels:
+        app: service-consumer
+    spec:
+      containers:
+        - name: server
+          image: yukanyan/service-consumer:v1.2.1
+          volumeMounts:
+            - mountPath: /opt/app/ca
+              name: ca
+            - mountPath: /opt/app/keypair
+              name: keypair
+      volumes:
+        - name: ca
+          secret:
+            secretName: sip-root-ca
+        - name: keypair
+          secret:
+            secretName: service-provider-client-cert

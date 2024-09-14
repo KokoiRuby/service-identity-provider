@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-bootstrap
+spec:
+  template:
+    spec:
+      serviceAccountName: vault-bootstrapper
+      containers:
+        - name: vault-bootstrap
+          image: yukanyan/vault-bootstrap:v1.1.5
+          env:
+            - name: VAULT_K8S_NAMESPACE
+              value: "sip"
+            - name: K8S_CLUSTER_NAME
+              value: "cluster.local"
+      restartPolicy: Never
+  backoffLimit: 4
+  

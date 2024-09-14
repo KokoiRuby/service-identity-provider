@@ -1,0 +1,21 @@
+apiVersion: sip.sec.com/v1alpha1
+kind: InternalCertificate
+metadata:
+  labels:
+    app.kubernetes.io/name: internal-cert
+    app.kubernetes.io/managed-by: kustomize
+  name: internalcertificate-service-consumer-sample
+spec:
+  # TODO(user): Add fields here
+  certificate:
+    issuer: 
+      reference: service-provider-ca
+    subject:
+      cn: service-provider
+    extendedKeyUsage:
+      clientAuth: true
+      serverAuth: false
+  secret:
+    name: service-provider-client-cert
+    keyName: tls.key
+    certName: tls.crt

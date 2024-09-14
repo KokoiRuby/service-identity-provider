@@ -1,0 +1,66 @@
+@startuml InternalCertificate
+participant Operator #LightBlue
+collections K8s #LightBlue
+database Vault #LightBlue
+
+header Service Identity Provider
+
+title InternalCertificate Operator
+
+-> Operator : InternalCertificate Events
+    alt#Gold #LightGreen
+        Operator -> K8s : get InternalCertificate
+        alt#Gold #LightGreen ExtendedKeyUsage.ClientAuth
+            alt#Gold #LightGreen
+                Operator -> K8s : get secret
+                Operator <- K8s : secret does not exist
+                alt#Gold #LightGreen
+                    Operator -> Vault : issue PKI Client CA
+                    Operator <- Vault : issue response
+                    alt#Gold #LightGreen
+                        Operator -> Operator : build secret from InternalCertificate
+                        alt#Gold #LightGreen End of Reconciliation
+                            Operator -> K8s : create secret
+                            Operator <- K8s : created
+                        else #Pink End of Reconciliation
+                            Operator <- K8s : unable to create secret
+                        end
+                    else #Pink End of Reconciliation
+                        Operator -> Operator : unable to build secret from InternalCertificate
+                    end
+                else #Pink End of Reconciliation
+                    Operator <- Vault : unable to issue PKI Client CA
+                end
+            else #Pink End of Reconciliation
+                Operator <- K8s : secret exists
+            end
+        end
+        alt#Gold #LightGreen ExtendedKeyUsage.ClientAuth
+            alt#Gold #LightGreen
+                Operator -> K8s : get secret
+                Operator <- K8s : secret does not exist
+                alt#Gold #LightGreen
+                    Operator -> Vault : issue PKI Intermediate Root CA
+                    Operator <- Vault : issue response
+                    alt#Gold #LightGreen
+                        Operator -> Operator : build secret from InternalCertificate
+                        alt#Gold #LightGreen End of Reconciliation
+                            Operator -> K8s : create secret
+                            Operator <- K8s : created
+                        else #Pink End of Reconciliation
+                            Operator <- K8s : unable to create secret
+                        end
+                    else #Pink End of Reconciliation
+                        Operator -> Operator : unable to build secret from InternalCertificate
+                    end
+                else #Pink End of Reconciliation
+                    Operator <- Vault : unable to issue Intermediate Root CA
+                end
+            else #Pink End of Reconciliation
+                Operator <- K8s : secret exists
+            end
+        end
+    else #Pink End of Reconciliation
+        K8s -> Operator : InternalCertificate not found
+    end
+@enduml

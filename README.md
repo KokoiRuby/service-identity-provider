@@ -39,68 +39,129 @@ Intermediate CA Certificate for **Service Provider** is shared by all **Service 
 
 #### Prerequisite
 
-An out-of-box Kubernetes cluster environment, try [kind](https://kind.sigs.k8s.io/). Note: 3 [workers](https://kind.sigs.k8s.io/docs/user/configuration/#nodes) are required for Vault HA.
+An out-of-box Kubernetes cluster environment, try [kind](https://kind.sigs.k8s.io/). 👈 Note: 3 [workers](https://kind.sigs.k8s.io/docs/user/configuration/#nodes) are required for Vault HA.
 
 Availability of [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) CLI & [helm](https://helm.sh/), the package manager to interact with Kubernetes cluster.
 
-#### CRD
-
-A [CRD](https://www.vaultproject.io/) (Custom Resource Definition) is a way to **extend** the Kubernetes API to create custom resources. 
-
-It allows users to define and manage new types of objects in their Kubernetes clusters.
-
-Note: CRD is concisered cluster-wide resource, it is recommend to install them in a dedicated namespace.
-
-```bash
-$ kubectl create ns <namespace-for-crd>
-$ helm install sip-crd \
-	*.tgz \
-	--namespace <namespace-for-crd> \
-	--atomic
-```
-
-To verify
-
-```bash
-$ kubectl get crd | grep -e sip.sec.com
-```
-
 #### Vault
 
-HashiCorp [Vault](https://www.vaultproject.io/) is an identity-based secrets and encryption management system.
+> HashiCorp [Vault](https://www.vaultproject.io/) is an identity-based secrets and encryption management system.
+>
+> A secret is anything that you want to tightly control access to. In our case, a X.509 certificate or key.
+>
+> Note: [HA](https://developer.hashicorp.com/vault/docs/concepts/ha) is enabled against outage.
 
-A secret is anything that you want to tightly control access to. In our case, a X.509 certificate or key.
+The Vault cluster is deployed as follows:
 
-Note: [HA](https://developer.hashicorp.com/vault/docs/concepts/ha) is enabled against server outage.
+1. Create Namespace.
 
 ```bash
-$ helm install vault \
-      *.tgz \
-      --namespace <namespace>
+$ export NAMESPACE="sip"
+$ export VAULT_RELEASE="vault"
+$ kubectl create ns $NAMESPACE
 ```
 
-To verify
+2. Bootstrap a keypair secret to enable Vault TLS mode. 
+
+Note: the certificate is signed by Kubernetes cluster Root CA, this makes sure that any pods hold `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` can validate Vault cluster.
 
 ```bash
-$ helm ls -n <namespace>
-$ helm status vault -n <namespace>
+$ kubectl apply -f helm/manifests/vault/bootstrap/ -n $NAMESPACE
+```
+
+```bash
+# verify
+$ kubectl get secret -n $NAMESPACE | grep vault-ha-tls
+```
+
+3. Deploy Vault.
+
+Note: the `helm-vault-raft-values-tls.yaml` is extracted from vault-**0.28.1**.tgz.
+
+```bash
+$ helm repo add hashicorp https://helm.releases.hashicorp.com
+```
+
+```bash
+$ helm repo update
+```
+
+```bash
+$ helm install $VAULT_RELEASE hashicorp/vault \
+	--version 0.28.1 \
+	--values helm/manifests/vault/deploy/helm-vault-raft-values-tls.yaml \
+	--namespace $NAMESPACE
+```
+
+Note: the `vault-*` are not ready yet, it's okay.
+
+```bash
+# verify
+$ kubectl get po -n $NAMESPACE | grep vault
+```
+
+4. Inititial and Unseal Vault cluster.
+
+Note: If you happen to see any vault-* restarted before, you have to re-run it to [unseal](https://developer.hashicorp.com/vault/docs/concepts/seal) Vault cluster once again to make service ready. Of course you have to delete previous `Succeded` job to re-run.
+
+```bash
+$ kubectl apply -f helm/manifests/vault/init/ -n $NAMESPACE
+```
+
+You should be able to see all `vault-*` are ready now.
+
+```bash
+# verify
+$ kubectl get po -n $NAMESPACE | grep vault
+```
+
+5. Enable PKI for Server AuthN.
+
+Note: the root-token will be kept somewhere safe in the future release.
+
+```bash
+$ kubectl apply -f helm/manifests/vault/pki/ -n $NAMESPACE
+```
+
+You should be able to see [pki secrets engine](https://developer.hashicorp.com/vault/docs/secrets/pki) `sip-root-ca/` & `sip-interm-ca/` are enabled.
+
+```bash
+# verify
+$ kubectl -n $NAMESPACE get secret vault-root-token -o json | jq -r .data.token | base64 -d -
+$ kubectl -n $NAMESPACE exec -it vault-0 -- sh
+$ vault login
+$ vault secrets list
 ```
 
 #### SIP
 
-Note: namespace must be the same one as Vault.
+Note: because we've enabled the [webhooks](https://book.kubebuilder.io/reference/webhook-overview) in Operators, [cert-manager](https://cert-manager.io/) is required for provisioning certificates for the webhook server. **Please follow [the cert-manager documentation](https://cert-manager.io/docs/installation/) to install it first.**
 
 ```bash
-$ helm install sip \
-      *.tgz \
-      --namespace <namespace>
+$ kubectl apply -f helm/manifests/vault/sip/ -n $NAMESPACE
 ```
 
-To Verify
+```bash
+# verify
+$ kubectl -n $NAMESPACE get po | grep controller-manager
+```
+
+#### Demo Application
 
 ```bash
-$ helm ls -n <namespace>
-$ helm status vault -n <namespace>
+$ kubectl apply -f helm/manifests/vault/sip/ -n $NAMESPACE
+```
+
+```bash
+# verify
+$ kubectl -n $NAMESPACE get po | grep consumer
+$ kubectl -n $NAMESPACE logs -f <podName>
+```
+
+#### Clean up
+
+```bash
+$ kubectl delete ns $NAMESPACE
 ```
 
 ### API
@@ -145,13 +206,11 @@ The following parameters/paths are supported (under CRD YAML `spec` section)
 
 The core logics are implemented in the **Reconcile** function inside Operator (controller of Custom Resource) scaffolded by [Kubebuilder](https://book.kubebuilder.io/).
 
-#### sip.sec.com/InternalCertificate
+See more in UML. 👈
 
-![image-20240910202655091](README.assets/image-20240910202655091.png)
+### Limitation
 
-#### sip.sec.com/InternalClientCA
-
-![image-20240910205220874](README.assets/image-20240910205220874.png)
+- The validity of InternalCertificate does not support renewal for the moment. Default is 1 week. You have to delete & re-create custom resources to renew.
 
 ### Operation and Maintenance
 
@@ -161,6 +220,16 @@ TODO...
 
 TODO...
 
+### Q&A
+
+> [Q] Why not using a Job rather than initContainers to initialize & unseal Vault?
+
+The Vault APIs are not availables until pod status becomes `Running`. The initContainers run ahead of vault main container and they will never reach the APIs. The pod ends up in `Initializing` forever. **If you have any better ideas, please drop a pull request.**
+
+> [Q] Could we just use one controller-manager to reconcile multiple custom resources?
+
+As mentioned in [Good Practices](https://book.kubebuilder.io/reference/good-practices#why-should-one-avoid-a-system-design-where-a-single-controller-is-responsible-for-managing-multiple-crds-custom-resource-definitionsfor-example-an-install_all_controllergo) of Kubebuilder, it is against the design purpose of [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime).
+
 ### Reference
 
 [Vault PKI secrets engine (API)](https://developer.hashicorp.com/vault/api-docs/secret/pki)
@@ -169,10 +238,11 @@ TODO...
 
 [Kubebuilder](https://book.kubebuilder.io/)
 
-### TODO...
+### TODO
 
+- Helm package
 - K8s AuthN
-- Thinking about moving root token to somewhere else...
+- Thinking about moving root token to somewhere safe...or simply just revoke it...
 - Certificate Renewal
-- Decouple config from
+- Decouple config from src
 - ++ more customizable fields for CR

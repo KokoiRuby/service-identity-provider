@@ -1,0 +1,24 @@
+@startuml Vault-PKI
+collections K8s #LightBlue
+participant PKI #LightBlue
+database Vault 
+
+
+header Service Identity Provider
+
+title Vault PKI for Server AuthN
+-> K8s : kubectl apply -f
+PKI -> Vault : enable sip-root-ca/
+PKI -> Vault : set TTL for sip-root-ca/
+PKI -> Vault : generate root CA keypair
+K8s <- PKI : persist root CA certificate to secret with goroutine
+PKI -> Vault : update CRL location & issuing certificates for sip-root-ca
+PKI -> Vault : configure a role for sip-root-ca/ to issue certificates.
+PKI -> Vault : enable sip-interm-ca/
+PKI -> Vault : set TTL for sip-interm-ca/
+PKI -> Vault : update CRL location & issuing certificates for sip-interm-ca/
+PKI -> Vault : configure a role for sip-interm-ca/ to issue certificates
+PKI -> Vault : genereate intermediate CA CSR
+PKI -> Vault : sign intermediate CA CSR by root CA
+PKI -> Vault : set signed intermediate CA certificate to root-signed certificate
+@enduml

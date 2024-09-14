@@ -178,7 +178,9 @@ func (r *InternalCertificateReconciler) buildSecretFrom(intCert *sipv1alpha1.Int
 		cert = issueResp.Data.Certificate
 	} else {
 		// only server auth needs ca chain
-		cert = issueResp.Data.CaChain[0] + "\n" + issueResp.Data.Certificate
+		// need to switch, otherwise tls: failed to verify certificate: x509: certificate signed by unknown authority
+		//cert = issueResp.Data.CaChain[0] + "\n" + issueResp.Data.Certificate
+		cert = issueResp.Data.Certificate + "\n" + issueResp.Data.CaChain[0]
 	}
 
 	secret := &corev1.Secret{

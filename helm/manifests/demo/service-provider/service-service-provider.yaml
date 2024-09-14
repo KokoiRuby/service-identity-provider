@@ -1,0 +1,18 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: service-provider
+spec:
+  ports:
+    - name: no-tls
+      port: 8080
+      targetPort: 8080
+    - name: tls
+      port: 8088
+      targetPort: 8088
+    - name: mtls
+      port: 8089
+      targetPort: 8089
+  selector:
+    app: service-provider
+  type: ClusterIP

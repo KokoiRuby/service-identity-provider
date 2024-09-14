@@ -60,7 +60,7 @@ func main() {
 		c.String(http.StatusOK, "mtls")
 	})
 
-	caCert, err := os.ReadFile("./ca/ca.pem")
+	caCert, err := os.ReadFile("./ca/client-ca.pem")
 	if err != nil {
 		log.Fatalf("failed to read CA cert: %s", err)
 	}
@@ -77,6 +77,11 @@ func main() {
 	}
 
 	// load server cert
+	// if chained = interm cert + server cert
+	// tls: private key does not match public key
+	// but if u only keep server cert
+	// tls: failed to verify certificate: x509: certificate signed by unknown authority
+	// Solution: have to changed the order of interm cert & server cert, must be: server cert + interm cert
 	cert, err := tls.LoadX509KeyPair("./keypair/tls.crt", "./keypair/tls.key")
 	if err != nil {
 		log.Fatalf("failed to load server key pair: %s", err)
