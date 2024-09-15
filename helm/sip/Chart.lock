@@ -1,0 +1,9 @@
+dependencies:
+- name: vault
+  repository: https://helm.releases.hashicorp.com
+  version: 0.28.1
+- name: cert-manager
+  repository: https://charts.jetstack.io
+  version: v1.15.3
+digest: sha256:1019b045a3aa168834435197ab177ad70c92e0a540aa27cd72e7746f3567a33d
+generated: "2024-09-15T20:32:46.607063514+08:00"

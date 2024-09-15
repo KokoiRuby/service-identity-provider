@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-bootstrap
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      serviceAccountName: vault-bootstrapper
+      containers:
+        - name: vault-bootstrap
+          image: "{{ .Values.vault_bootstrap.image }}:{{ .Values.vault_bootstrap.tag }}"
+          env:
+            - name: VAULT_K8S_NAMESPACE
+              value: "{{ .Values.vault_bootstrap.env.VAULT_K8S_NAMESPACE | default "sip" }}"
+            - name: K8S_CLUSTER_NAME
+              value: "{{ .Values.vault_bootstrap.env.K8S_CLUSTER_NAME | default "cluster.local" }}"
+      restartPolicy: Never
+  backoffLimit: 4
+  

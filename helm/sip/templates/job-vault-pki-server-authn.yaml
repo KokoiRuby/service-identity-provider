@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-pki-server-authn
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+spec:
+  template:
+    spec:
+      serviceAccountName: vault-initiator
+      containers:
+        - name: vault-pki-server-authn
+          image: "{{ .Values.vault_pki.image }}:{{ .Values.vault_pki.tag }}"
+      initContainers:
+        - name: wait-for-vault
+          image: ghcr.io/groundnuty/k8s-wait-for:v2.0
+          args: ["pod", "-lapp.kubernetes.io/name=vault"]
+      restartPolicy: Never
+  backoffLimit: 4

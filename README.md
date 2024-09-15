@@ -43,7 +43,56 @@ An out-of-box Kubernetes cluster environment, try [kind](https://kind.sigs.k8s.i
 
 Availability of [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) CLI & [helm](https://helm.sh/), the package manager to interact with Kubernetes cluster.
 
-#### Vault
+#### Helm
+
+```bash
+$ export CERTM_NAMESPACE="cert-manager"
+$ export SIP_NAMESPACE="sip"
+$ export SIP_RELEASE="sip"
+```
+
+Note: because we've enabled the [webhooks](https://book.kubebuilder.io/reference/webhook-overview) in Operators, [cert-manager](https://cert-manager.io/) is required for provisioning certificates for the webhook server. **Please follow the cert-manager [documentation](https://cert-manager.io/docs/installation/helm/) to install it first.**
+
+```bash
+$ helm repo add jetstack https://charts.jetstack.io --force-update
+```
+
+```bash
+$ helm install \
+	cert-manager jetstack/cert-manager \
+	--namespace $CERTM_NAMESPACE \
+	--create-namespace \
+	--version v1.15.3 \
+	--set crds.enabled=true
+```
+
+```bash
+$ helm install \
+	$SIP_RELEASE Service-Identity-Provider-0.1.6.tgz \
+	--namespace $SIP_NAMESPACE \
+	--create-namespace
+```
+
+##### Demo Application
+
+```bash
+$ kubectl -n $SIP_NAMESPACE apply -f helm/manifests/demo/service-provider
+$ kubectl -n $SIP_NAMESPACE apply -f helm/manifests/demo/service-consumer
+# verify
+$ kubectl -n $SIP_NAMESPACE get po | grep consumer
+$ kubectl -n $SIP_NAMESPACE logs -f <podName>
+```
+
+##### Clean up
+
+```bash
+$ helm uninstall sip -n $SIP_NAMESPACE
+$ kubectl delete ns $SIP_NAMESPACE
+```
+
+#### Manual
+
+##### Vault
 
 > HashiCorp [Vault](https://www.vaultproject.io/) is an identity-based secrets and encryption management system.
 >
@@ -56,7 +105,7 @@ The Vault cluster is deployed as follows:
 1. Create Namespace.
 
 ```bash
-$ export NAMESPACE="sip"
+$ export SIP_NAMESPACE="sip"
 $ export VAULT_RELEASE="vault"
 $ kubectl create ns $NAMESPACE
 ```
@@ -66,12 +115,12 @@ $ kubectl create ns $NAMESPACE
 Note: the certificate is signed by Kubernetes cluster Root CA, this makes sure that any pods hold `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` can validate Vault cluster.
 
 ```bash
-$ kubectl apply -f helm/manifests/vault/bootstrap/ -n $NAMESPACE
+$ kubectl apply -f helm/manifests/vault/bootstrap/ -n $SIP_NAMESPACE
 ```
 
 ```bash
 # verify
-$ kubectl get secret -n $NAMESPACE | grep vault-ha-tls
+$ kubectl get secret -n $SIP_NAMESPACE | grep vault-ha-tls
 ```
 
 3. Deploy Vault.
@@ -90,29 +139,29 @@ $ helm repo update
 $ helm install $VAULT_RELEASE hashicorp/vault \
 	--version 0.28.1 \
 	--values helm/manifests/vault/deploy/helm-vault-raft-values-tls.yaml \
-	--namespace $NAMESPACE
+	--namespace $SIP_NAMESPACE
 ```
 
 Note: the `vault-*` are not ready yet, it's okay.
 
 ```bash
 # verify
-$ kubectl get po -n $NAMESPACE | grep vault
+$ kubectl get po -n $SIP_NAMESPACE | grep vault
 ```
 
 4. Inititial and Unseal Vault cluster.
 
-Note: If you happen to see any vault-* restarted before, you have to re-run it to [unseal](https://developer.hashicorp.com/vault/docs/concepts/seal) Vault cluster once again to make service ready. Of course you have to delete previous `Succeded` job to re-run.
+Note: If you happen to see any vault-* restarted before, you have to re-run it to [unseal](https://developer.hashicorp.com/vault/docs/concepts/seal) Vault cluster once again to make service ready. Of course you have to delete previous `Succeeded` job to re-run.
 
 ```bash
-$ kubectl apply -f helm/manifests/vault/init/ -n $NAMESPACE
+$ kubectl apply -f helm/manifests/vault/init/ -n $SIP_NAMESPACE
 ```
 
 You should be able to see all `vault-*` are ready now.
 
 ```bash
 # verify
-$ kubectl get po -n $NAMESPACE | grep vault
+$ kubectl get po -n $SIP_NAMESPACE | grep vault
 ```
 
 5. Enable PKI for Server AuthN.
@@ -120,48 +169,49 @@ $ kubectl get po -n $NAMESPACE | grep vault
 Note: the root-token will be kept somewhere safe in the future release.
 
 ```bash
-$ kubectl apply -f helm/manifests/vault/pki/ -n $NAMESPACE
+$ kubectl apply -f helm/manifests/vault/pki/ -n $SIP_NAMESPACE
 ```
 
 You should be able to see [pki secrets engine](https://developer.hashicorp.com/vault/docs/secrets/pki) `sip-root-ca/` & `sip-interm-ca/` are enabled.
 
 ```bash
 # verify
-$ kubectl -n $NAMESPACE get secret vault-root-token -o json | jq -r .data.token | base64 -d -
-$ kubectl -n $NAMESPACE exec -it vault-0 -- sh
+$ kubectl -n $SIP_NAMESPACE get secret vault-root-token -o json | jq -r .data.token | base64 -d -
+$ kubectl -n $SIP_NAMESPACE exec -it vault-0 -- sh
 $ vault login
 $ vault secrets list
 ```
 
-#### SIP
+##### SIP
 
 Note: because we've enabled the [webhooks](https://book.kubebuilder.io/reference/webhook-overview) in Operators, [cert-manager](https://cert-manager.io/) is required for provisioning certificates for the webhook server. **Please follow [the cert-manager documentation](https://cert-manager.io/docs/installation/) to install it first.**
 
 ```bash
-$ kubectl apply -f helm/manifests/vault/sip/ -n $NAMESPACE
+$ kubectl apply -f helm/manifests/vault/sip/ -n $SIP_NAMESPACE
 ```
 
 ```bash
 # verify
-$ kubectl -n $NAMESPACE get po | grep controller-manager
+$ kubectl -n $SIP_NAMESPACE get po | grep controller-manager
 ```
 
-#### Demo Application
+##### Demo Application
 
 ```bash
-$ kubectl apply -f helm/manifests/vault/sip/ -n $NAMESPACE
+$ kubectl -n $SIP_NAMESPACE apply -f helm/manifests/demo/service-provider
+$ kubectl -n $SIP_NAMESPACE apply -f helm/manifests/demo/service-consumer
 ```
 
 ```bash
 # verify
-$ kubectl -n $NAMESPACE get po | grep consumer
-$ kubectl -n $NAMESPACE logs -f <podName>
+$ kubectl -n $SIP_NAMESPACE get po | grep consumer
+$ kubectl -n $SIP_NAMESPACE logs -f <podName>
 ```
 
-#### Clean up
+##### Clean up
 
 ```bash
-$ kubectl delete ns $NAMESPACE
+$ kubectl delete ns $SIP_NAMESPACE
 ```
 
 ### API
@@ -206,7 +256,7 @@ The following parameters/paths are supported (under CRD YAML `spec` section)
 
 The core logics are implemented in the **Reconcile** function inside Operator (controller of Custom Resource) scaffolded by [Kubebuilder](https://book.kubebuilder.io/).
 
-See more in UML. 👈
+See more in [UML](https://github.com/KokoiRuby/service-identity-provider/tree/main/uml). 👈
 
 ### Limitation
 

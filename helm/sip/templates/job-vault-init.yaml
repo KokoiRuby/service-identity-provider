@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+spec:
+  template:
+    spec:
+      serviceAccountName: vault-initiator
+      containers:
+        - name: vault-init
+          image: "{{ .Values.vault_init.image }}:{{ .Values.vault_init.tag }}"
+          env:
+            - name: VAULT_CLUSTER
+              value: "{{ .Values.vault_init.env.VAULT_CLUSTER | default "vault-0,vault-1,vault-2" }}"
+            - name: KUBERNETES_CLUSTER_DOMAIN
+              value: "{{ .Values.vault_init.env.K8S_CLUSTER_NAME | default "cluster.local" }}"
+      # Not feasible as vault will never be READY until it's unsealed
+      # initContainers:
+      #   - name: wait-for-vault
+      #     image: ghcr.io/groundnuty/k8s-wait-for:v2.0
+      #     args: ["pod", "-lapp.kubernetes.io/name=vault"]
+      restartPolicy: Never
+  # increase backoffLimit but it will increase overall boot-up time as well
+  # TODO: any improvement?
+  backoffLimit: 10
