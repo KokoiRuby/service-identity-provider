@@ -68,7 +68,7 @@ $ helm install \
 
 ```bash
 $ helm install \
-	$SIP_RELEASE Service-Identity-Provider-0.1.6.tgz \
+	$SIP_RELEASE helm/sip/service-identity-provider-0.1.6.tgz \
 	--namespace $SIP_NAMESPACE \
 	--create-namespace
 ```
@@ -290,7 +290,6 @@ As mentioned in [Good Practices](https://book.kubebuilder.io/reference/good-prac
 
 ### TODO
 
-- Helm package
 - K8s AuthN
 - Thinking about moving root token to somewhere safe...or simply just revoke it...
 - Certificate Renewal

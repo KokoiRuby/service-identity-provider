@@ -1,0 +1,80 @@
+apiVersion: v1
+entries:
+  Service-Identity-Provider:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2024-09-16T14:19:09.204683471+08:00"
+    dependencies:
+    - condition: vault.enabled
+      name: vault
+      repository: https://helm.releases.hashicorp.com
+      tags:
+      - middleware
+      version: 0.28.1
+    description: An auto-provisioned solution for Kubernetes in-cluster mTLS
+    digest: 792f6d2654f49180b3be1d854c3b3619109e8a88ca3b983a598a07aa3fe3e5d7
+    name: Service-Identity-Provider
+    type: application
+    urls:
+    - https://kokoiruby.github.io/service-identity-provider/Service-Identity-Provider-0.1.6.tgz
+    version: 0.1.6
+  cert-manager:
+  - annotations:
+      artifacthub.io/category: security
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/prerelease: "false"
+      artifacthub.io/signKey: |
+        fingerprint: 1020CF3C033D4F35BAE1C19E1226061C665DF13E
+        url: https://cert-manager.io/public-keys/cert-manager-keyring-2021-09-20-1020CF3C033D4F35BAE1C19E1226061C665DF13E.gpg
+    apiVersion: v2
+    appVersion: v1.15.3
+    created: "2024-09-16T14:19:09.206976672+08:00"
+    description: A Helm chart for cert-manager
+    digest: 016e68d9f7083d2c4fd302f951ee6490dbf4cb1ef44cfc06914c39cbfb01d858
+    home: https://cert-manager.io
+    icon: https://raw.githubusercontent.com/cert-manager/community/4d35a69437d21b76322157e6284be4cd64e6d2b7/logo/logo-small.png
+    keywords:
+    - cert-manager
+    - kube-lego
+    - letsencrypt
+    - tls
+    kubeVersion: '>= 1.22.0-0'
+    maintainers:
+    - email: cert-manager-maintainers@googlegroups.com
+      name: cert-manager-maintainers
+      url: https://cert-manager.io
+    name: cert-manager
+    sources:
+    - https://github.com/cert-manager/cert-manager
+    urls:
+    - https://kokoiruby.github.io/service-identity-provider/charts/cert-manager-v1.15.3.tgz
+    version: v1.15.3
+  vault:
+  - annotations:
+      charts.openshift.io/name: HashiCorp Vault
+    apiVersion: v2
+    appVersion: 1.17.2
+    created: "2024-09-16T14:19:09.208603755+08:00"
+    description: Official HashiCorp Vault Chart
+    digest: 99efe00f5527182e76d6e7a0ccf9d4797badd248cb8fe070fbe117e0b6cb58d7
+    home: https://www.vaultproject.io
+    icon: https://github.com/hashicorp/vault/raw/f22d202cde2018f9455dec755118a9b84586e082/Vault_PrimaryLogo_Black.png
+    keywords:
+    - vault
+    - security
+    - encryption
+    - secrets
+    - management
+    - automation
+    - infrastructure
+    kubeVersion: '>= 1.20.0-0'
+    name: vault
+    sources:
+    - https://github.com/hashicorp/vault
+    - https://github.com/hashicorp/vault-helm
+    - https://github.com/hashicorp/vault-k8s
+    - https://github.com/hashicorp/vault-csi-provider
+    urls:
+    - https://kokoiruby.github.io/service-identity-provider/charts/vault-0.28.1.tgz
+    version: 0.28.1
+generated: "2024-09-16T14:19:09.1988232+08:00"
